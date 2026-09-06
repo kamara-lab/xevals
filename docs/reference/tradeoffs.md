@@ -1,0 +1,3 @@
+# `xevals.tradeoffs`
+
+::: xevals.tradeoffs

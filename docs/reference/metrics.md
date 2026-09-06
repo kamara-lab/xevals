@@ -1,0 +1,3 @@
+# `xevals.metrics`
+
+::: xevals.metrics

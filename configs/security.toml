@@ -1,0 +1,23 @@
+# Adversarial patches, bounded pixel noise, and instruction injection.
+#
+# Read the result the right way round: a model that survives these has not been
+# shown to be secure. The patch search here is gradient-free so that hosted and
+# closed models can be evaluated at all, which makes it a weak attack. Failing
+# it means the model fails easily; passing it means only that.
+#
+#   xevals run configs/security.toml
+
+extends = "base.toml"
+
+[model]
+target = "examples.policies:image_policy"
+
+[suite]
+name = "security"
+
+[run]
+episodes = 15
+record = 3        # the patch is worth looking at
+
+[output]
+name = "security"

@@ -1,0 +1,3 @@
+# `xevals.dimensions`
+
+::: xevals.dimensions

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"
+     width="96" height="96" role="img" aria-label="xevals">
+  <title>xevals</title>
+  <desc>Three bars of unequal height: filled cells are what a model scored on each dimension, outlined cells the headroom it did not reach.</desc>
+  <g>
+    <rect x="14" y="14" width="18" height="18" rx="4.5" fill="#121412"/>
+    <rect x="39" y="14" width="18" height="18" rx="4.5" fill="none" stroke="#121412" stroke-width="2.5" opacity="0.3"/>
+    <rect x="64" y="14" width="18" height="18" rx="4.5" fill="none" stroke="#121412" stroke-width="2.5" opacity="0.3"/>
+    <rect x="14" y="39" width="18" height="18" rx="4.5" fill="#121412"/>
+    <rect x="39" y="39" width="18" height="18" rx="4.5" fill="none" stroke="#121412" stroke-width="2.5" opacity="0.3"/>
+    <rect x="64" y="39" width="18" height="18" rx="4.5" fill="#121412"/>
+    <rect x="14" y="64" width="18" height="18" rx="4.5" fill="#121412"/>
+    <rect x="39" y="64" width="18" height="18" rx="4.5" fill="#121412"/>
+    <rect x="64" y="64" width="18" height="18" rx="4.5" fill="#121412"/>
+  </g>
+</svg>

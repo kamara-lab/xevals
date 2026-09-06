@@ -1,0 +1,25 @@
+# What every xevals config inherits: the synthetic world, a handful of episodes,
+# three seeds. Three seeds rather than one because the consistency dimension
+# reports its seed spread as unmeasurable below that, and a run that cannot say
+# how much its own number moves between seeds has not measured anything.
+#
+# Extend it with `extends = "base.toml"` and override what differs.
+
+[target]
+env = "synthetic/reach"
+
+[suite]
+name = "core"
+
+[run]
+episodes = 20
+seeds = [0, 1, 2]
+horizon = 200
+root_seed = 0
+record = 2
+save_trajectories = false
+control_hz = 10.0
+baselines = true
+
+[output]
+dir = "runs"

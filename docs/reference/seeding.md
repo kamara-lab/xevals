@@ -1,0 +1,3 @@
+# `xevals.seeding`
+
+::: xevals.seeding

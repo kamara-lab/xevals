@@ -1,0 +1,9 @@
+| cell             | perturbation      | severity | split      | success |   n |
+| ---------------- | ----------------- | -------: | ---------- | ------: | --: |
+| clean            | none              |   0.0000 | in         |  0.8750 |   8 |
+| brightness@0.4   | visual/brightness |   0.4000 | in         |  0.7500 |   8 |
+| brightness@0.8   | visual/brightness |   0.8000 | in         |  0.6250 |   8 |
+| occlusion@0.75   | visual/occlusion  |   0.7500 | in         |  0.2500 |   8 |
+| action-noise@0.6 | action/noise      |   0.6000 | in         |  0.0000 |   8 |
+| patch@1          | adversarial/patch |   1.0000 | in         |  0.0000 |   8 |
+| unseen-object    | none              |   0.0000 | ood/object |  0.2500 |   8 |

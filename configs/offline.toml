@@ -1,0 +1,28 @@
+# Offline evaluation against a recorded corpus, with no simulator involved.
+#
+# `target.dataset` is `<reader>:<path>`. The runner turns each episode into a
+# replay environment, so action error, prediction error and every visual or
+# language perturbation are measured by exactly the code that measures them
+# online. What cannot be measured offline is success under the model's own
+# actions -- the world does not respond -- and those metrics report null with
+# that reason rather than a number.
+#
+#   xevals run configs/offline.toml target.dataset=lerobot:/path/to/dataset
+
+extends = "base.toml"
+
+[model]
+target = "examples.policies:state_policy"
+
+[target]
+dataset = "synthetic:reach"
+
+[suite]
+name = "core"
+
+[run]
+episodes = 5
+record = 1
+
+[output]
+name = "offline"

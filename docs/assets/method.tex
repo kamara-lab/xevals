@@ -1,0 +1,272 @@
+% The diagram on the documentation home page: what xevals does to a model, drawn
+% in TikZ so the maths is set by LaTeX rather than faked in SVG text.
+%
+% Build both themes and convert to SVG (requires TeX Live and poppler):
+%
+%   cd docs/assets
+%   pdflatex -jobname=method-light "\def\xevalstheme{light}\input{method.tex}"
+%   pdflatex -jobname=method-dark  "\def\xevalstheme{dark}\input{method.tex}"
+%   pdftocairo -svg method-light.pdf method-light.svg
+%   pdftocairo -svg method-dark.pdf  method-dark.svg
+%
+% or, which also checks the dimension palette against xevals.dimensions:
+%
+%   python -m tools.make_diagram
+%
+% The SVGs are committed, so neither the docs build nor CI needs LaTeX.
+%
+\documentclass[border=5pt]{standalone}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bm}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, fit, calc, backgrounds}
+
+% Theme, set on the command line. Light is the default so a bare compile works.
+\providecommand{\xevalstheme}{light}
+\def\xevalslight{light}
+
+% kamara's palette (https://kamara.dev). The chrome is monochrome: the structural
+% colour is blueprint, and the diagram separates things by weight, opacity and
+% rule rather than by hue -- so the light and dark builds are the same drawing
+% with the ramp read from the other end. The only hue in the chrome is the
+% accent on the clean cell and on the pairing loop, because those two are the
+% argument the picture is making.
+\definecolor{paper}{HTML}{FAFAF8}
+\definecolor{blueprint}{HTML}{747974}
+\definecolor{blueprintlight}{HTML}{A8ADA7}
+\definecolor{brandaccent}{HTML}{367FC9}
+\definecolor{brandaccentlight}{HTML}{5DA3E9}
+
+\ifx\xevalstheme\xevalslight
+  \colorlet{accent}{blueprint}
+  \colorlet{signal}{brandaccent}
+  \definecolor{ink}{HTML}{121412}
+  \definecolor{muted}{HTML}{5C615D}
+  % A chip is a filled pill, so it takes the ink/paper pair rather than the
+  % structural colour: paper on blueprint would not clear 4.5:1.
+  \definecolor{chipfill}{HTML}{121412}
+  \definecolor{chiptext}{HTML}{FAFAF8}
+  \definecolor{coretitle}{HTML}{121412}
+  % The seven dimensions, in the fixed order. Viridis samples, as everywhere else.
+  \definecolor{dimA}{HTML}{440154}\definecolor{dimB}{HTML}{46327E}
+  \definecolor{dimC}{HTML}{365C8D}\definecolor{dimD}{HTML}{277F8E}
+  \definecolor{dimE}{HTML}{1FA187}\definecolor{dimF}{HTML}{4AC16D}
+  \definecolor{dimG}{HTML}{A0DA39}
+  \def\boxfill{paper}
+  \def\boxfillop{1}
+  \def\zonefillop{0.05}
+  \def\corefillop{0.10}
+  \def\boxlineop{0.40}
+  \def\zonelineop{0.34}
+  \def\corelineop{0.66}
+  \def\arrowop{0.72}
+  \def\cellop{0.42}
+\else
+  \colorlet{accent}{blueprintlight}
+  \colorlet{signal}{brandaccentlight}
+  \definecolor{ink}{HTML}{E4E5E2}
+  \definecolor{muted}{HTML}{9BA09A}
+  \definecolor{chipfill}{HTML}{FAFAF8}
+  \definecolor{chiptext}{HTML}{121412}
+  \definecolor{coretitle}{HTML}{E4E5E2}
+  % Lifted 28% toward paper. Viridis runs from near-black, so its dark end --
+  % accuracy, the bar most likely to be looked at -- is otherwise invisible here.
+  \definecolor{dimA}{HTML}{774782}\definecolor{dimB}{HTML}{786AA0}
+  \definecolor{dimC}{HTML}{6D88AB}\definecolor{dimD}{HTML}{62A1AC}
+  \definecolor{dimE}{HTML}{5CBAA7}\definecolor{dimF}{HTML}{7BD194}
+  \definecolor{dimG}{HTML}{B9E36E}
+  \def\boxfill{paper}
+  \def\boxfillop{0.04}
+  \def\zonefillop{0.05}
+  \def\corefillop{0.15}
+  \def\boxlineop{0.42}
+  \def\zonelineop{0.28}
+  \def\corelineop{0.60}
+  \def\arrowop{0.80}
+  \def\cellop{0.46}
+\fi
+
+% Sans for the words, LaTeX maths for everything that is a symbol.
+\newcommand{\stagename}[1]{{\sffamily\bfseries\small\color{ink}#1}}
+\newcommand{\corename}[1]{{\sffamily\bfseries\small\color{coretitle}#1}}
+\newcommand{\note}[1]{{\sffamily\fontsize{6.4}{7.6}\selectfont\color{muted}#1}}
+\newcommand{\kicker}[1]{{\sffamily\bfseries\fontsize{6}{7}\selectfont\color{accent}#1}}
+
+% Success as an indicator, which is what it is: the environment's own verdict on
+% one episode. Writing it out keeps the retention ratio honest about being a
+% ratio of two *means of indicators* rather than of two probabilities.
+\newcommand{\succind}[1]{\mathbf{1}\!\left[\,\mathrm{succ}(#1)\,\right]}
+
+\begin{document}
+\color{ink}
+\begin{tikzpicture}[
+  x=1cm, y=1cm,
+  font=\footnotesize,
+  every node/.style={outer sep=0pt, text=ink},
+  stage/.style={
+    draw=accent, draw opacity=\boxlineop, line width=0.5pt, rounded corners=4.5pt,
+    fill=\boxfill, fill opacity=\boxfillop, text opacity=1,
+    align=center, inner sep=4.5pt, minimum height=1.05cm, text=ink,
+  },
+  core/.style={
+    draw=accent, draw opacity=\corelineop, line width=0.7pt, rounded corners=4.5pt,
+    fill=accent, fill opacity=\corefillop, text opacity=1,
+    align=center, inner sep=4.5pt, minimum height=1.05cm, text=ink,
+  },
+  chip/.style={
+    draw=none, fill=chipfill, rounded corners=3.5pt, text=chiptext,
+    align=center, inner sep=3pt, minimum height=0.66cm, minimum width=0.92cm,
+  },
+  input/.style={
+    draw=accent, draw opacity=\boxlineop, line width=0.5pt, dash pattern=on 2pt off 1.6pt,
+    rounded corners=3.5pt, fill=\boxfill, fill opacity=\boxfillop, text opacity=1,
+    align=center, inner sep=4pt, text=ink,
+  },
+  flow/.style={
+    draw=accent, draw opacity=\arrowop, line width=0.6pt,
+    -{Stealth[length=3.6pt, width=2.8pt]},
+  },
+  loop/.style={
+    draw=signal, draw opacity=0.85, line width=0.55pt, dash pattern=on 2.4pt off 1.8pt,
+    rounded corners=4pt, -{Stealth[length=3.2pt, width=2.6pt]},
+  },
+]
+
+% ------------------------------------------------------------------- any model
+% The input is the model itself, and the claim is that its *kind* is all xevals
+% needs to know. Three of the four protocols, written as the signatures they are.
+\node[stage, align=left, inner sep=6pt] (model) at (0, 0) {%
+  \stagename{any model}\\[3.5pt]
+  $\pi \colon \mathcal{O} \to \mathcal{A}$\\[2.5pt]
+  $f \colon \mathcal{O} \times \mathcal{A}^{H} \to \mathcal{P}$\\[2.5pt]
+  $g \colon \mathcal{L} \to \mathcal{S}$%
+};
+\node[below=3.5pt of model, align=center] (modelcap) {%
+  \note{policy $\cdot$ world model $\cdot$ planner}\\[1pt]
+  \note{torch $\cdot$ jax $\cdot$ LeRobot $\cdot$ HF $\cdot$ HTTP $\cdot$ fn}%
+};
+
+% --------------------------------------------------------------------- adapter
+\node[stage, right=0.62cm of model] (adapt) {%
+  \stagename{adapter}\\[2.5pt]
+  $\mathrm{wrap} \colon \mathrm{Model} \to \Pi$%
+};
+\node[below=4pt of adapt] {\note{numpy at the boundary}};
+
+% ---------------------------------------------------------------------- runner
+\node[chip, right=0.62cm of adapt] (pi) {$\pi$};
+\node[core, right=0.62cm of pi] (runner) {%
+  \corename{runner}\\[2.5pt]
+  $\mathrm{roll} \colon (\pi, e, s) \mapsto \tau$%
+};
+\node[chip, right=0.62cm of runner] (tau) {$\tau$};
+
+\node[input, below=1.86cm of runner] (env) {%
+  $e \in \mathcal{E}$\\[1.5pt]
+  \note{reset $\cdot$ step $\cdot$ limits}%
+};
+
+% The cell grid: five severities across, three families down, the clean column
+% marked. It sits between the runner and the environment because it is what the
+% runner sweeps rather than a thing in the flow.
+\begin{scope}[shift={($(runner.south) + (-0.62, -0.34)$)}]
+  \foreach \r in {0, 1, 2} {
+    \foreach \c in {0, 1, 2, 3, 4} {
+      \ifnum\c=0
+        \fill[signal, rounded corners=0.9pt]
+          (\c*0.27, -\r*0.20) rectangle ++(0.20, 0.13);
+      \else
+        \draw[draw=accent, draw opacity=\cellop, line width=0.4pt, rounded corners=0.9pt]
+          (\c*0.27, -\r*0.20) rectangle ++(0.20, 0.13);
+      \fi
+    }
+  }
+  % Only the clean column is labelled. The SUITE kicker above already names the
+  % grid's axes, and the accent column is the one thing a reader has to identify:
+  % it is the cell every paired metric in the equation above divides by.
+  \node[anchor=north west, inner sep=0pt] at (-0.02, -0.48)
+    {{\sffamily\fontsize{5.4}{6}\selectfont\color{signal}clean}};
+\end{scope}
+
+% --------------------------------------------------------------------- metrics
+\node[stage, right=0.62cm of tau] (metrics) {%
+  \stagename{metrics}\\[2.5pt]
+  $m \colon \tau^{n} \to (v,\, \mathrm{ci},\, n)$%
+};
+\node[below=4pt of metrics] {\note{pure functions over trajectories}};
+
+% ------------------------------------------------------------------ dimensions
+\node[stage, right=0.62cm of metrics, minimum width=1.45cm] (dims) {%
+  \stagename{dimensions}\\[4pt]
+  \begin{tikzpicture}[baseline=0pt, x=1cm, y=1cm]
+    \foreach \h/\col [count=\i from 0] in
+      {0.80/dimA, 0.44/dimB, 0.13/dimC, 0.24/dimD, 1.00/dimE, 1.00/dimF, 1.00/dimG} {
+      \fill[\col, rounded corners=0.5pt]
+        (\i*0.13, 0) rectangle ++(0.09, {max(0.02, \h*0.34)});
+    }
+    \draw[draw=accent, draw opacity=0.5, line width=0.35pt] (-0.02, 0) -- (0.93, 0);
+  \end{tikzpicture}\\[1.5pt]
+  $D_d \in [0, 1]$%
+};
+\node[below=4pt of dims, align=center] {%
+  \note{seven, in a fixed order}%
+};
+
+% ------------------------------------------------------------------------ flow
+\draw[flow] (model) -- (adapt);
+\draw[flow] (adapt) -- (pi);
+\draw[flow] (pi) -- (runner);
+\draw[flow] (runner) -- (tau);
+\draw[flow] (tau) -- (metrics);
+\draw[flow] (metrics) -- (dims);
+\draw[flow] (env) -- (runner);
+
+% The pairing loop: the clean cell's episodes re-enter the metrics as the
+% reference every paired metric divides by. This is the only cycle in the
+% library, and the equation over it is the only arithmetic worth drawing.
+\coordinate (loopmid) at ($(tau.north)!0.5!(metrics.north)$);
+\draw[loop] (tau.north) |- ($(loopmid) + (0, 0.86)$) -| (metrics.north);
+\node[above=0.90cm of loopmid, anchor=south, align=center] {%
+  $\displaystyle \rho_p
+     = \frac{\mathbb{E}_{s \in S}\,\succind{p, s}}
+            {\mathbb{E}_{s \in S}\,\succind{\varnothing, s}}$\\[2.5pt]
+  \note{paired on seeds: the clean cell, the same $S$}%
+};
+
+% ---------------------------------------------- what is deliberately absent
+\node[align=left, anchor=north west] at ($(model.west |- modelcap.south) + (-0.06, -0.30)$) {%
+  \note{$\times$\; no single number: seven dimensions, always}\\[2.5pt]
+  \note{$\times$\; nothing unmeasurable scored as $0$: it is $\varnothing$, with a reason}\\[2.5pt]
+  \note{$\times$\; no difference claimed that the intervals do not separate}\\[2.5pt]
+  \note{$\times$\; no numbers at all when the replay gate fails}%
+};
+
+% ------------------------------------------------------------------- the suite
+\begin{pgfonlayer}{background}
+  \node[
+    draw=accent, draw opacity=\zonelineop, line width=0.55pt,
+    dash pattern=on 2.6pt off 2.2pt, rounded corners=7pt,
+    fill=accent, fill opacity=\zonefillop,
+    fit=(runner) (env), inner ysep=9pt, inner xsep=13pt,
+  ] (zone) {};
+\end{pgfonlayer}
+\node[above right=1.5pt and 1pt of zone.north west, anchor=south west]
+  {\kicker{SUITE} $\mathcal{C} = \mathcal{T} \times \mathcal{P} \times \Sigma \times S$};
+
+% --------------------------------------------------------------------- scoring
+\coordinate (figmid) at ($(model)!0.62!(dims)$);
+\node[anchor=north, align=center] at ($(figmid |- zone.south) + (0, -0.52)$) {%
+  \kicker{SCORING}\\[3pt]
+  $\displaystyle D_d
+     = \frac{1}{\lvert M_d \rvert} \sum_{m \in M_d} \eta_m\!\left(v_m\right),
+     \qquad \eta_m \colon \mathbb{R} \to [0, 1]$\\[2.5pt]
+  \note{every $\eta_m$ is written into \texttt{run.json}, so the score can be recomputed, or disagreed with}%
+};
+
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,3 @@
+# `xevals.adapters`
+
+::: xevals.adapters

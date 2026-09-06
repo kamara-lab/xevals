@@ -1,0 +1,3 @@
+# `xevals.plots`
+
+::: xevals.plots

@@ -1,0 +1,3 @@
+# `xevals.registry`
+
+::: xevals.registry

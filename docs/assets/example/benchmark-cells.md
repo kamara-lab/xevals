@@ -1,0 +1,9 @@
+| cell             | perturbation      | severity | scripted | visual | random |
+| ---------------- | ----------------- | -------: | -------: | -----: | -----: |
+| clean            | none              |   0.0000 |   1.0000 | 0.8750 | 0.0000 |
+| brightness@0.4   | visual/brightness |   0.4000 |   1.0000 | 0.7500 | 0.0000 |
+| brightness@0.8   | visual/brightness |   0.8000 |   1.0000 | 0.6250 | 0.0000 |
+| occlusion@0.75   | visual/occlusion  |   0.7500 |   1.0000 | 0.2500 | 0.0000 |
+| action-noise@0.6 | action/noise      |   0.6000 |   0.7500 | 0.0000 | 0.0000 |
+| patch@1          | adversarial/patch |   1.0000 |   1.0000 | 0.0000 | 0.0000 |
+| unseen-object    | none              |   0.0000 |   1.0000 | 0.2500 | 0.0000 |

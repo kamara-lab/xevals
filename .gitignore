@@ -1,0 +1,30 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Docs
+site/
+.cache/
+
+# Evaluation output: run directories are large, binary and reproducible from
+# their own config.json, so they are artefacts rather than sources.
+runs/
+examples/outputs/
+
+# LaTeX intermediates beside docs/assets/method.tex. The SVGs are committed, so
+# nothing downstream needs the PDF -- only someone editing the diagram builds one.
+docs/assets/*.aux
+docs/assets/*.log
+docs/assets/*.pdf
+docs/assets/*.out
+docs/assets/*.synctex.gz
+
+# MuJoCo writes this beside the working directory on a model warning.
+MUJOCO_LOG.TXT

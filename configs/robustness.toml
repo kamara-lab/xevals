@@ -1,0 +1,16 @@
+# Severity ladders only. Cheaper than the full suite and the right first thing
+# to run on a model you already know does the task: it answers "and does it keep
+# doing it?" without re-measuring what you know.
+#
+#   xevals run configs/robustness.toml run.episodes=20
+
+extends = "base.toml"
+
+[model]
+target = "examples.policies:image_policy"
+
+[suite]
+name = "robustness"
+
+[output]
+name = "robustness"

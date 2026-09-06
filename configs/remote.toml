@@ -1,0 +1,27 @@
+# A hosted model behind an HTTP endpoint -- the black-box case.
+#
+# Worth running rather than treating as a workaround: robustness, security,
+# consistency and end-to-end latency are most of what can be known about a model
+# you cannot inspect, differentiate or profile, and all four are measured here
+# without inspection. Latency includes the network, which is the honest number
+# for a deployment that would also call it over the network.
+#
+#   xevals run configs/remote.toml model.target=https://my-endpoint/act
+
+extends = "base.toml"
+
+[model]
+target = "http://127.0.0.1:8000/act"
+
+[model.kwargs]
+timeout = 30.0
+
+[suite]
+name = "robustness"
+
+[run]
+episodes = 10
+control_hz = 5.0   # a remote model is not closing a 10 Hz loop
+
+[output]
+name = "remote"

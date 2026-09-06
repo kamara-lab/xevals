@@ -1,0 +1,3 @@
+# `xevals.cli`
+
+::: xevals.cli

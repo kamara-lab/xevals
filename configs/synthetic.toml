@@ -1,0 +1,20 @@
+# The full seven-dimension evaluation on the built-in world. No downloads, no
+# extras, under a minute on a laptop -- and it exercises every code path the
+# library has, which is why the docs and the tests both point at it.
+#
+#   xevals run configs/synthetic.toml
+
+extends = "base.toml"
+
+[model]
+target = "examples.policies:image_policy"
+
+[suite]
+name = "full"
+
+[run]
+episodes = 10
+record = 2
+
+[output]
+name = "synthetic"

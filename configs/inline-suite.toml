@@ -1,0 +1,34 @@
+# A paper-specific evaluation, written out cell by cell rather than named.
+#
+# An inline suite is the right shape when the conditions *are* the contribution:
+# the file that produced the numbers sits beside them in the run directory, and
+# an unknown metric name here is an error rather than a silently skipped column.
+#
+#   xevals run configs/inline-suite.toml
+
+extends = "base.toml"
+
+[model]
+target = "examples.policies:image_policy"
+
+[suite]
+name = "camera-shift-only"
+dimensions = ["accuracy", "robustness", "efficiency"]
+baselines = ["random", "noop", "replay"]
+
+[[suite.cells]]
+name = "clean"
+
+[[suite.cells]]
+name = "shift-mild"
+perturbation = "visual/camera_shift"
+severity = 0.3
+
+[[suite.cells]]
+name = "shift-strong"
+perturbation = "visual/camera_shift"
+severity = 0.9
+metrics = ["accuracy/success_rate", "robustness/retention"]
+
+[output]
+name = "camera-shift"

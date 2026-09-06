@@ -1,0 +1,27 @@
+# A Franka Emika Panda picking a block off a table, in MuJoCo. Needs the models:
+#
+#   pip install 'xevals[mujoco]'
+#
+# Swap `env` for any of the arms and tasks `xevals envs` lists: fr3, ur5e, yam
+# and so101 all take the same four-number action space, so the same model runs
+# against every one of them and the scores are comparable.
+#
+#   xevals run configs/robots.toml
+#   xevals run configs/robots.toml target.env=mujoco/ur5e-push
+
+extends = "base.toml"
+
+[model]
+target = "examples.policies:arm_policy"
+
+[target]
+env = "mujoco/panda-pick"
+
+[suite]
+name = "core"
+
+# A robot episode is a hundred physics frames rather than a dozen, so fewer of
+# them: this is a config to try, not a config to publish from.
+[run]
+episodes = 6
+seeds = [0, 1, 2]

@@ -1,0 +1,32 @@
+# Several models, one suite, one set of seeds -- the benchmark form.
+#
+# `[[models]]` instead of `[model]`, and that is the only difference. Every model
+# runs the same cells from the same starting states, so the comparison is paired
+# rather than a comparison of two averages; and the baselines and the replay gate
+# are measured once, because they are properties of the environment rather than
+# of any model.
+#
+#   xevals run configs/benchmark.toml
+#
+# The output is one directory holding each model's full run, a leaderboard, an
+# overlaid radar, and a page naming the conditions that separate them.
+
+extends = "base.toml"
+
+[[models]]
+name = "state"
+target = "examples.policies:state_policy"
+
+[[models]]
+name = "image"
+target = "examples.policies:image_policy"
+
+[suite]
+name = "robustness"
+
+[run]
+episodes = 10
+record = 1        # a benchmark writes one video set per model; keep it small
+
+[output]
+name = "state-vs-image"

@@ -1,0 +1,268 @@
+
+/* ---------------------------------------------------------------- tokens --
+   kamara's palette, plus three semantic states the neutral ramp cannot carry.
+   A report is read by someone deciding whether to trust a number, so "this
+   passed", "this is incomplete" and "this failed" have to be distinguishable
+   at a glance and without relying on hue alone: every state also carries an
+   icon and a word. */
+:root {
+  --paper:#FAFAF8; --card:#FFFFFF; --ink:#121412; --muted:#5C615D; --faint:#8B908A;
+  --grid:#DCDEDB; --rule:#CBCDCA;
+  --accent:#367FC9; --accent-text:#2769AD; --accent-soft:#EAF2FB;
+  --ok:#1F7A5C; --ok-soft:#E6F2ED;
+  --warn:#9A5B18; --warn-soft:#FAF0E4;
+  --bad:#A32E22; --bad-soft:#FBEAE8;
+  --radius:8px; --radius-sm:5px;
+  --shadow:0 1px 2px rgba(18,20,18,.04), 0 1px 8px rgba(18,20,18,.03);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:#0B0D0B; --card:#161917; --ink:#F2F3F0; --muted:#A8ADA7; --faint:#767C76;
+    --grid:#242825; --rule:#3A3F3B;
+    --accent:#5DA3E9; --accent-text:#8BC5FF; --accent-soft:#16222E;
+    --ok:#5CBAA7; --ok-soft:#132420;
+    --warn:#E9A35D; --warn-soft:#2A2118;
+    --bad:#E2796C; --bad-soft:#2B1815;
+    --shadow:none;
+  }
+}
+*,*::before,*::after { box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; }
+body {
+  margin:0; background:var(--paper); color:var(--ink);
+  font:15px/1.62 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system,
+       'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-variant-numeric:tabular-nums;
+}
+.wrap { max-width:1160px; margin:0 auto; padding:0 1.6rem 6rem; }
+
+/* ------------------------------------------------------------------ type -- */
+h1 { font-size:2.05rem; font-weight:650; letter-spacing:-.022em; margin:.15rem 0 .3rem; }
+h2 { font-size:1.16rem; font-weight:600; letter-spacing:-.012em;
+     margin:0 0 1rem; display:flex; align-items:center; gap:.55rem; }
+h3 { font-size:.95rem; font-weight:600; margin:1.7rem 0 .5rem; }
+p  { margin:.55rem 0; }
+.kicker { font-size:.62rem; font-weight:600; letter-spacing:.22em;
+          text-transform:uppercase; color:var(--accent-text); }
+.lede { color:var(--muted); max-width:70ch; }
+.small { font-size:.82rem; color:var(--muted); }
+a { color:var(--accent-text); text-underline-offset:2px; }
+code, pre, .num { font-family:'Geist Mono', ui-monospace, SFMono-Regular, Menlo,
+                  monospace; font-size:.86em; }
+code { background:var(--card); border:1px solid var(--grid); border-radius:4px;
+       padding:.08em .34em; }
+pre { background:var(--card); border:1px solid var(--grid); border-radius:var(--radius);
+      padding:.9rem 1.05rem; overflow-x:auto; margin:.7rem 0; }
+pre code { background:none; border:0; padding:0; }
+
+/* ---------------------------------------------------------------- header -- */
+header.top { padding:3rem 0 1.4rem; border-bottom:1px solid var(--grid); margin-bottom:1.6rem; }
+.meta-strip { display:flex; flex-wrap:wrap; gap:.35rem 1.6rem; margin-top:1rem;
+              font-size:.8rem; color:var(--muted); }
+.meta-strip b { color:var(--ink); font-weight:600; }
+
+/* ----------------------------------------------------------------- chips -- */
+.chips { display:flex; flex-wrap:wrap; gap:.5rem; margin:1.1rem 0 0; }
+.chip { display:inline-flex; align-items:center; gap:.42rem; border-radius:999px;
+        padding:.3rem .78rem .3rem .6rem; font-size:.79rem; font-weight:500;
+        border:1px solid var(--grid); background:var(--card); color:var(--ink); }
+.chip svg { flex:none; }
+.chip.ok   { color:var(--ok);   border-color:var(--ok);   background:var(--ok-soft); }
+.chip.warn { color:var(--warn); border-color:var(--warn); background:var(--warn-soft); }
+.chip.bad  { color:var(--bad);  border-color:var(--bad);  background:var(--bad-soft); }
+
+/* --------------------------------------------------------------- banners -- */
+.banner { display:flex; gap:.7rem; border:1px solid var(--grid); border-left-width:3px;
+          border-radius:var(--radius); padding:.85rem 1.05rem; margin:1rem 0;
+          background:var(--card); }
+.banner svg { flex:none; margin-top:.15rem; }
+.banner strong { display:block; margin-bottom:.15rem; }
+.banner .body { font-size:.88rem; color:var(--muted); }
+.banner.bad  { border-left-color:var(--bad);  background:var(--bad-soft); }
+.banner.bad strong { color:var(--bad); }
+.banner.warn { border-left-color:var(--warn); background:var(--warn-soft); }
+.banner.warn strong { color:var(--warn); }
+.banner.ok   { border-left-color:var(--ok);   background:var(--ok-soft); }
+.banner.ok strong { color:var(--ok); }
+.banner.info { border-left-color:var(--accent); background:var(--accent-soft); }
+
+/* -------------------------------------------------------------- sections -- */
+section { margin:2.6rem 0 0; scroll-margin-top:1rem; }
+section > .body { border-top:1px solid var(--grid); padding-top:1.1rem; }
+.section-icon { color:var(--accent); display:inline-flex; }
+
+/* ----------------------------------------------------------------- cards -- */
+.scores { display:grid; gap:.75rem; margin:1.2rem 0 1.6rem;
+          grid-template-columns:repeat(auto-fit,minmax(158px,1fr)); }
+/* Seven dimensions on one row where there is room: six and a stray reads as a
+   grid that ran out, not as a set of seven. */
+@media (min-width:1080px) { .scores { grid-template-columns:repeat(7,minmax(0,1fr)); } }
+/* A benchmark's cards carry a name and a bar strip, so they need more width and
+   there are only ever a handful of them. */
+@media (min-width:1080px) { .models .scores, .scores:has(.model-name) {
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); } }
+.score { position:relative; background:var(--card); border:1px solid var(--grid);
+         border-radius:var(--radius); padding:.8rem .9rem .85rem; box-shadow:var(--shadow);
+         overflow:hidden; }
+.score::before { content:""; position:absolute; inset:0 auto 0 0; width:3px;
+                 background:var(--dim, var(--rule)); }
+.score .name { font-size:.63rem; font-weight:600; letter-spacing:.09em;
+               text-transform:uppercase; color:var(--muted); }
+.score .value { font-size:1.85rem; font-weight:650; letter-spacing:-.035em;
+                line-height:1.1; margin-top:.12rem; }
+.score .bar { height:4px; border-radius:2px; background:var(--grid); margin-top:.55rem;
+              overflow:hidden; }
+.score .bar span { display:block; height:100%; background:var(--dim); border-radius:2px; }
+.score .q { font-size:.72rem; color:var(--faint); margin-top:.5rem; line-height:1.4; }
+.score.unmeasured .value { font-size:.92rem; font-weight:500; letter-spacing:0;
+                           color:var(--muted); padding:.42rem 0 .3rem; }
+.score.unmeasured::before { background:repeating-linear-gradient(
+    180deg, var(--rule) 0 4px, transparent 4px 8px); }
+
+/* A benchmark card carries a model's whole profile as seven bars, so that two
+   models with the same mean cannot look the same. */
+.score .model-name { font-size:1.02rem; font-weight:600; letter-spacing:-.012em;
+                     margin:.1rem 0 .05rem; }
+.score.lead { border-color:var(--accent); }
+.score .strip { display:flex; align-items:flex-end; gap:2px; height:26px;
+                margin:.6rem 0 .5rem; }
+.score .strip i { flex:1; min-height:2px; border-radius:1.5px; display:block; }
+.score a { text-decoration:none; }
+
+/* ---------------------------------------------------------------- tables -- */
+.scroll { overflow-x:auto; margin:.8rem 0 1.2rem; border:1px solid var(--grid);
+          border-radius:var(--radius); background:var(--card); }
+table { border-collapse:collapse; width:100%; font-size:.855rem; }
+th { text-align:left; font-size:.63rem; font-weight:600; letter-spacing:.085em;
+     text-transform:uppercase; color:var(--muted); white-space:nowrap;
+     padding:.6rem .85rem; border-bottom:1px solid var(--rule); background:var(--card);
+     position:sticky; top:0; }
+td { padding:.48rem .85rem; border-bottom:1px solid var(--grid); white-space:nowrap; }
+tbody tr:last-child td { border-bottom:0; }
+tbody tr:hover td { background:var(--accent-soft); }
+td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+td.null { color:var(--faint); }
+td.name { font-family:'Geist Mono', ui-monospace, monospace; font-size:.8rem; }
+
+/* --------------------------------------------------------------- figures -- */
+/* Charts are inline SVG rather than an image, so they take the page's type and
+   its colours and stay sharp at any zoom. The plate keeps them legible in dark
+   mode without baking a background into the drawing. */
+figure.chartbox { background:var(--card); border:1px solid var(--grid);
+                  border-radius:var(--radius); padding:.9rem 1rem .7rem; }
+svg.chart { display:block; width:100%; height:auto; }
+svg.chart text { font-family:'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system,
+                 'Segoe UI', sans-serif; font-variant-numeric:tabular-nums; }
+figure { margin:1.1rem 0; }
+figure img { width:100%; display:block; border:1px solid var(--grid);
+             border-radius:var(--radius); background:var(--paper); }
+figcaption { color:var(--muted); font-size:.79rem; margin-top:.5rem; line-height:1.5; }
+.split { display:grid; gap:1.4rem; grid-template-columns:1fr; align-items:start; }
+@media (min-width:900px) { .split { grid-template-columns:minmax(0,1fr) minmax(0,1fr); } }
+
+/* ---------------------------------------------------------------- clips -- */
+.gallery { display:grid; gap:1rem; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); }
+.clip { margin:0; background:var(--card); border:1px solid var(--grid);
+        border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); }
+.clip img, .clip video { width:100%; display:block; background:var(--paper);
+                         border:0; border-radius:0; image-rendering:pixelated; }
+.clip figcaption { margin:0; padding:.55rem .7rem .6rem; border-top:1px solid var(--grid); }
+.clip .cell { font-family:'Geist Mono', ui-monospace, monospace; font-size:.74rem;
+              color:var(--ink); display:block; overflow:hidden; text-overflow:ellipsis; }
+.clip .outcome { font-size:.7rem; font-weight:600; letter-spacing:.06em;
+                 text-transform:uppercase; }
+.clip .outcome.ok { color:var(--ok); } .clip .outcome.bad { color:var(--bad); }
+
+/* ------------------------------------------------------------------- nav --
+   The report is a handful of pages in one directory rather than one very long
+   one. The nav is the same on every page, so a reader who has found the episode
+   list once can find it again without going back to the overview. */
+nav.pages { display:flex; flex-wrap:wrap; gap:.25rem; margin:0 0 1.8rem;
+            border-bottom:1px solid var(--grid); padding-bottom:0;
+            position:sticky; top:0; z-index:20; background:var(--paper);
+            backdrop-filter:saturate(1.6) blur(8px); }
+/* The nav is sticky, so an anchored section has to clear it rather than land
+   underneath it. */
+section, .cellblock { scroll-margin-top:4rem; }
+nav.pages a { display:inline-flex; align-items:center; gap:.42rem; padding:.55rem .85rem;
+              font-size:.86rem; color:var(--muted); text-decoration:none;
+              border-bottom:2px solid transparent; margin-bottom:-1px; }
+nav.pages a:hover { color:var(--ink); }
+nav.pages a[aria-current] { color:var(--accent-text); border-bottom-color:var(--accent);
+                            font-weight:600; }
+nav.pages a svg { opacity:.8; }
+
+/* --------------------------------------------------------------- episodes --
+   One block per condition: a header carrying the cell's own numbers, then its
+   clips, then every episode it ran. */
+.cellblock { border:1px solid var(--grid); border-radius:var(--radius);
+             background:var(--card); margin:1.1rem 0; overflow:hidden; }
+.cellblock > header { display:flex; flex-wrap:wrap; align-items:baseline; gap:.5rem 1.2rem;
+                      padding:.75rem 1rem; border-bottom:1px solid var(--grid); }
+.cellblock h3 { margin:0; font-family:'Geist Mono', ui-monospace, monospace;
+                font-size:.92rem; }
+.cellblock .facts { display:flex; gap:1.1rem; font-size:.8rem; color:var(--muted);
+                    margin-left:auto; }
+.cellblock .facts b { color:var(--ink); font-weight:600; }
+.cellblock .inner { padding:1rem; }
+.cellblock .gallery { margin-bottom:.9rem; }
+.dot { display:inline-block; width:.62rem; height:.62rem; border-radius:2px;
+       margin-right:2px; vertical-align:-1px; }
+.dot.ok { background:var(--ok); } .dot.bad { background:var(--bad); }
+.dot.none { background:var(--rule); }
+.legend { font-size:.78rem; color:var(--muted); display:flex; gap:1rem; flex-wrap:wrap;
+          margin:.4rem 0 0; }
+
+/* ------------------------------------------------------------------- toc -- */
+nav.toc { border:1px solid var(--grid); border-radius:var(--radius); background:var(--card);
+          padding:.8rem 1rem; margin:1.6rem 0; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap;
+             gap:.3rem 1.3rem; font-size:.82rem; counter-reset:s; }
+nav.toc a { text-decoration:none; color:var(--muted); }
+nav.toc a:hover { color:var(--accent-text); }
+nav.toc li::before { counter-increment:s; content:counter(s) ". "; color:var(--faint); }
+
+/* ------------------------------------------------------------ provenance -- */
+dl.meta { display:grid; grid-template-columns:max-content minmax(0,1fr);
+          gap:.3rem 1.3rem; font-size:.84rem; margin:.6rem 0; }
+dl.meta dt { color:var(--muted); }
+dl.meta dd { margin:0; font-family:'Geist Mono', ui-monospace, monospace;
+             font-size:.8rem; overflow-wrap:anywhere; }
+
+footer { margin-top:4rem; padding-top:1.1rem; border-top:1px solid var(--grid);
+         color:var(--faint); font-size:.79rem; display:flex; justify-content:space-between;
+         flex-wrap:wrap; gap:.5rem; }
+
+/* A report is an audit artefact, so it has to survive being printed to PDF:
+   backgrounds forced on, nothing sticky, no clipped tables, links spelled out. */
+@media print {
+  :root { --paper:#fff; --card:#fff; --shadow:none; }
+  body { font-size:10.5pt; }
+  .wrap { max-width:none; padding:0; }
+  nav.toc, nav.pages { display:none; }
+  th { position:static; }
+  .scroll { overflow:visible; break-inside:avoid; }
+  section, figure, .clip, .banner, .score { break-inside:avoid; }
+  * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+
+:root {
+  --dim-accuracy:#440154;
+  --dim-robustness:#46327e;
+  --dim-safety:#365c8d;
+  --dim-security:#277f8e;
+  --dim-efficiency:#1fa187;
+  --dim-generalization:#4ac16d;
+  --dim-consistency:#a0da39;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --dim-accuracy:#774782;
+    --dim-robustness:#786aa0;
+    --dim-safety:#6d88ab;
+    --dim-security:#62a1ac;
+    --dim-efficiency:#5cbaa7;
+    --dim-generalization:#7bd194;
+    --dim-consistency:#b9e36e;
+  }
+}
