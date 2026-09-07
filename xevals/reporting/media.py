@@ -157,8 +157,8 @@ def tile(frames: Sequence[np.ndarray], *, columns: int = 6) -> np.ndarray:
     return sheet
 
 
-def write_all(result: Any, directory: str | Path, *, per_cell: int = 2, fps: int = 10):
-    """Write a few episodes per cell, each with its HUD.
+def write_all(result: Any, directory: str | Path, *, per_cell: int | None = 2, fps: int = 10):
+    """Write episodes per cell with a HUD; ``per_cell=None`` saves all recorded ones.
 
     Returns cell name -> paths written. Cells whose episodes carry no frames --
     because ``record`` was 0, or because the environment renders nothing -- are

@@ -759,6 +759,9 @@ def _load_robots() -> None:
     if _ROBOTS_LOADED:
         return
     _ROBOTS_LOADED = True
+    from xevals.environments.isaaclab import register
+
+    register()
     try:
         from xevals.environments import sim  # noqa: F401
     except ImportError:

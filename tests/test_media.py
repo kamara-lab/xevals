@@ -50,3 +50,26 @@ def test_save_video_returns_the_path_it_actually_wrote(tmp_path):
 def test_a_contact_sheet_tiles_the_episode():
     sheet = media.tile(FRAMES, columns=3)
     assert sheet.ndim == 3 and sheet.shape[-1] == 3
+
+
+def test_saved_result_exports_every_recorded_episode(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    from xevals.reporting import media as reporting_media
+    from xevals.reporting.results import Result
+
+    episode = SimpleNamespace(
+        frames=FRAMES, instruction="pick", perturbation=None, success=True
+    )
+    result = SimpleNamespace(
+        trajectories={"clean": [episode, episode, episode]},
+        suite=SimpleNamespace(cells=[]),
+        run={"control_hz": 20.0},
+    )
+    saved = []
+    monkeypatch.setattr(
+        reporting_media, "save_video",
+        lambda frames, path, **kw: saved.append((path.name, kw["fps"])) or path,
+    )
+    Result._write_videos(result, tmp_path)
+    assert saved == [("000", 20.0), ("001", 20.0), ("002", 20.0)]

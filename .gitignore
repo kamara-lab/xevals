@@ -16,6 +16,7 @@ site/
 # Evaluation output: run directories are large, binary and reproducible from
 # their own config.json, so they are artefacts rather than sources.
 runs/
+videos/gripper-pov/
 examples/outputs/
 
 # LaTeX intermediates beside docs/assets/method.tex. The SVGs are committed, so

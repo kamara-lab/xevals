@@ -204,6 +204,7 @@ nav:
       - Wrapping models: guides/wrapping-models.md
       - Environments: guides/environments.md
       - Robots: guides/robots.md
+      - Isaac Lab and Newton: guides/isaaclab.md
       - Datasets: guides/datasets.md
       - Suites: guides/suites.md
       - Benchmarks: guides/benchmarks.md

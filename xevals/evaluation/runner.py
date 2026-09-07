@@ -278,6 +278,10 @@ def rollout(
             break
 
     traj.obs.append(obs)
+    if record and traj.actions:
+        frame = env.render()
+        if frame is not None:
+            traj.frames.append(np.asarray(frame, dtype=np.uint8))
     if getattr(env, "offline", False):
         # A replayed episode does not respond to the model's actions, so whether
         # *this model* would have succeeded is unknowable. The recording's own
@@ -617,6 +621,19 @@ def _print_cell(result: CellResult, seconds: float) -> None:
     )
 
 
+class _BorrowedEnv:
+    """Forward a caller-owned environment without closing it after each episode."""
+
+    def __init__(self, env):
+        self._env = env
+
+    def __getattr__(self, name):
+        return getattr(self._env, name)
+
+    def close(self):
+        pass
+
+
 def _env_factory(env: Any) -> Callable[[str, str], Env]:
     """Normalise the three ways an environment can be supplied into one factory.
 
@@ -639,18 +656,22 @@ def _env_factory(env: Any) -> Callable[[str, str], Env]:
         return lambda task, split: env()
     # A single live environment: reused across cells, which is why every cell
     # resets it with its own seed rather than trusting the previous cell's state.
-    return lambda task, split: env  # type: ignore[return-value]
+    borrowed = _BorrowedEnv(env)
+    return lambda task, split: borrowed  # type: ignore[return-value]
 
 
 def _env_fingerprint(env: Any) -> dict[str, Any]:
     """What was evaluated *in*, including whether reset-from-state round-trips."""
     info: dict[str, Any] = {
-        "type": type(env).__name__,
+        "type": type(env._env if isinstance(env, _BorrowedEnv) else env).__name__,
         "action_dim": int(getattr(env, "action_dim", 0)),
         "offline": bool(getattr(env, "offline", False)),
         "declares_limits": envs.limits_of(env) is not None,
         "supports_physics": hasattr(env, "set_physics"),
     }
+    describe = getattr(env, "describe", None)
+    if callable(describe):
+        info["configuration"] = describe()
     for attr in ("env_id", "task", "object_name", "robot", "backend"):
         if hasattr(env, attr):
             info[attr] = getattr(env, attr)

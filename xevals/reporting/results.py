@@ -614,7 +614,9 @@ class Result:
         try:
             from xevals.reporting import media
 
-            media.write_all(self, directory / "videos")
+            media.write_all(
+                self, directory / "videos", per_cell=None, fps=self.run.get("control_hz", 10.0)
+            )
         except Exception as exc:  # noqa: BLE001
             print(f"xevals: videos skipped ({type(exc).__name__}: {exc})", flush=True)
 

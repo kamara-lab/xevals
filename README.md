@@ -212,6 +212,12 @@ JSON keeps full precision; LaTeX and Markdown round. The normalisation used for 
 NumPy at every boundary; observations are `dict[str, Any]` so a model reads the fields it wants. Anything unmeasurable is `null` with a reason, never zero:
 a dimension the suite did not run scores `None`, and the radar draws a hole rather than a point at the origin. Slash-namespaced registries with lazy entries. `print(..., flush=True)`, no logging framework. British spelling. Comments say why.
 
+## Isaac Lab with Newton
+
+The native Panda port provides reach, push, pick, and place with a free rigid
+object and Newton/MuJoCo Warp physics. See the [runtime and validation guide](docs/guides/isaaclab.md)
+for the pinned Isaac Lab installation, camera options, and demonstrator gates.
+
 ## Package structure
 
 The implementation is grouped into `core`, `evaluation`, `integrations`,
