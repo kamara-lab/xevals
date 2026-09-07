@@ -105,16 +105,25 @@ EXAMPLE = Path(__file__).resolve().parents[1] / "docs" / "assets" / "example"
 def test_the_example_output_is_committed():
     # The page claims these are real files rather than screenshots. If they are
     # missing the page renders empty iframes and says something untrue.
-    from tools.make_example_output import KEEP_VIDEO, REPORT_PAGES
+    report_pages = (
+        "report.html",
+        "conditions.html",
+        "episodes.html",
+        "tradeoffs.html",
+        "metrics.html",
+        "provenance.html",
+        "report.css",
+    )
+    keep_video = ("clean", "occlusion@0.75", "patch@1")
 
-    for name in (*REPORT_PAGES, "radar.png", "leaderboard.md", "dimensions.md",
+    for name in (*report_pages, "radar.png", "leaderboard.md", "dimensions.md",
                  "cells.md"):
         assert (EXAMPLE / name).exists(), name
     for name in ("index.html", "conditions.html", "provenance.html", "report.css"):
         assert (EXAMPLE / "benchmark" / name).exists(), name
     # The clips keep the layout the report links them under. Flattening them into
     # a renamed set silently broke every link in the embedded copy once already.
-    for cell in KEEP_VIDEO:
+    for cell in keep_video:
         assert list((EXAMPLE / "videos" / cell).glob("*.gif")), cell
 
 
@@ -127,10 +136,9 @@ def test_the_example_report_pages_link_to_clips_that_exist():
 
 
 def test_the_example_stays_inside_its_budget():
-    from tools.make_example_output import BUDGET_KB
-
     total = sum(p.stat().st_size for p in EXAMPLE.rglob("*") if p.is_file()) // 1024
-    assert total <= BUDGET_KB, f"{total} kB committed, budget is {BUDGET_KB} kB"
+    budget_kb = 2200
+    assert total <= budget_kb, f"{total} kB committed, budget is {budget_kb} kB"
 
 
 def test_the_example_report_draws_its_charts_inline():

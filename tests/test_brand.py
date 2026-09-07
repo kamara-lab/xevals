@@ -1,59 +1,43 @@
-"""The committed brand assets must match the tools that generate them.
+"""Structural checks for the committed brand assets.
 
-Every SVG in ``assets/`` and ``docs/assets/`` is generated, and generated files
-that are committed are exactly the files someone eventually hand-edits. These
-tests are cheap and they catch the drift that matters: a mark whose cells no
-longer trace the bars, a kicker that was changed in one of six files, a diagram
-whose palette has moved on from the library's.
+The generator scripts were intentionally removed. These tests validate the
+meaningful invariants directly, without importing deleted maintenance tooling.
 """
 
 from __future__ import annotations
 
-import sys
+import re
 from pathlib import Path
 
-import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from tools import make_banner, make_logos  # noqa: E402
-
 ROOT = Path(__file__).resolve().parents[1]
+KICKER = "ROBOTICS + AI EVALUATIONS"
+WORDMARKS = ("assets/logo.svg", "assets/logo-inverse.svg", "docs/assets/logo.svg")
+MARKS = (
+    "assets/logo-mark.svg",
+    "assets/logo-mark-inverse.svg",
+    "docs/assets/logo-mark-ink.svg",
+    "docs/assets/logo-mark-inverse.svg",
+)
 
 
-@pytest.mark.parametrize("path", sorted(make_logos.FILES))
-def test_every_committed_svg_matches_the_generator(path):
-    # Regenerating and diffing, rather than checking for a substring: the whole
-    # file is the artefact, and a hand edit anywhere in it is what this catches.
-    assert (ROOT / path).read_text() == make_logos.FILES[path]()
+def test_every_wordmark_carries_the_kicker():
+    for path in WORDMARKS:
+        assert KICKER in (ROOT / path).read_text(), path
 
 
-def test_the_wordmark_carries_the_kicker():
-    for path in ("assets/logo.svg", "assets/logo-inverse.svg", "docs/assets/logo.svg"):
-        assert make_logos.KICKER in (ROOT / path).read_text(), path
+def test_every_mark_traces_three_bars_of_unequal_height():
+    for path in (*WORDMARKS, *MARKS):
+        text = (ROOT / path).read_text()
+        filled = re.findall(r'<rect x="(14|39|64)" y="(14|39|64)"[^>]+fill="(?!none)', text)
+        heights = [sum(1 for x, _ in filled if x == str(col)) for col in (14, 39, 64)]
+        assert heights == [3, 1, 2], path
 
 
-def test_the_mark_traces_three_bars_of_unequal_height():
-    heights = [sum(1 for row in range(3) if (row, col) in make_logos.FILLED) for col in range(3)]
-    assert heights == [3, 1, 2]
-    # Unequal on purpose: three equal bars would be a grid, and the mark is
-    # supposed to say that a model's dimensions disagree.
-    assert len(set(heights)) == 3
-
-
-def test_the_banner_draws_the_same_mark_as_the_svgs():
-    # The banner cannot import the SVGs, so it repeats the cell set -- and this
-    # is what stops the two copies parting company.
-    assert make_banner.FILLED == make_logos.FILLED
-    assert make_banner.POS == make_logos.POS
-    assert make_banner.KICKER == make_logos.KICKER
-
-
-def test_the_diagram_palette_is_the_librarys_own():
-    from tools import make_diagram
-
-    # Raises with the offending theme named if the LaTeX has drifted.
-    make_diagram.check_palette()
+def test_the_diagram_uses_the_library_dimension_palette():
+    source = (ROOT / "docs/assets/method.tex").read_text()
+    colours = ("440154", "46327E", "365C8D", "277F8E", "1FA187", "4AC16D", "A0DA39")
+    for colour in colours:
+        assert f"{{HTML}}{{{colour}}}" in source
 
 
 def test_the_favicon_is_the_mark_on_a_tile():

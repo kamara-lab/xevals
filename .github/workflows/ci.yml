@@ -110,13 +110,6 @@ jobs:
 
       # The benchmark path is a different handler with its own config shape, so
       # a single-model end-to-end does not cover it.
-      # The docs embed real artefacts. Regenerating them here proves the page is
-      # not showing output from a version of the library that no longer exists.
-      - name: The docs example still generates
-        run: |
-          python -m tools.make_example_output
-          git diff --stat -- docs/assets/example || true
-
       - name: End-to-end benchmark from a config
         run: |
           xevals run configs/benchmark.toml run.episodes=2 'run.seeds=[0]' \

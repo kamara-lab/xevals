@@ -152,15 +152,19 @@ def test_a_perfectly_calibrated_model_has_no_calibration_error():
 
 
 def test_a_metric_that_raises_becomes_a_null_rather_than_ending_the_run():
+    name = "accuracy/explodes"
     metrics.METRICS.register(
-        "accuracy/explodes",
+        name,
         lambda **kw: (lambda *a, **k: 1 / 0),
         dimension="accuracy",
         higher_is_better=True,
     )
-    value = metrics.compute(["accuracy/explodes"], [])["accuracy/explodes"]
-    assert value.value is None
-    assert "ZeroDivisionError" in value.reason
+    try:
+        value = metrics.compute([name], [])[name]
+        assert value.value is None
+        assert "ZeroDivisionError" in value.reason
+    finally:
+        metrics.METRICS._entries.pop(name, None)
 
 
 def test_applicability_keeps_a_metric_out_of_cells_it_would_mislead_in():

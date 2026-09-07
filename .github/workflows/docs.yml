@@ -55,7 +55,11 @@ jobs:
       - name: Install
         run: uv pip install -e ".[docs]"
 
+      # Pages is optional for forks and repositories that only want the build
+      # check. Set the repository variable ENABLE_PAGES=true after enabling
+      # Settings -> Pages -> GitHub Actions to publish the built site.
       - uses: actions/configure-pages@v5
+        if: ${{ vars.ENABLE_PAGES == 'true' }}
 
       - name: Build
         run: mkdocs build --strict
@@ -66,6 +70,7 @@ jobs:
 
   deploy:
     name: Deploy
+    if: ${{ vars.ENABLE_PAGES == 'true' }}
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
