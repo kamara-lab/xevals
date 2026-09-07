@@ -42,8 +42,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .dimensions import DIMENSION_ORDER
-from .dimensions import color as dimension_color
+from xevals.core.dimensions import DIMENSION_ORDER
+from xevals.core.dimensions import color as dimension_color
 
 __all__ = [
     "BENCHMARK_PAGES",
@@ -702,7 +702,7 @@ def _tradeoffs(analyses: Any, directory: Path) -> str:
                 f"{_escape(y_axis.label)} is given up per unit of "
                 f"{_escape(x_axis.label)}{turn}.</p>"
             )
-        from . import charts
+        from xevals.reporting import charts
 
         x_axis, y_axis = analysis.tradeoff.axes(analysis.scope)
         if x_axis is not None and y_axis is not None and analysis.points:
@@ -799,7 +799,7 @@ def _chrome(
     css_href: str | None,
 ) -> str:
     """The shell every page shares: head, nav, body, footer."""
-    from . import __version__
+    from xevals import __version__
 
     stamp = datetime.now(tz=UTC).strftime("%Y-%m-%d")
     style = (
@@ -859,7 +859,7 @@ def _model_title(result: Any) -> str:
 
 
 def _page_overview(result: Any, directory: Path) -> str:
-    from . import charts
+    from xevals.reporting import charts
 
     colours = _dimension_colours()
     scores = {d.value: result.scores.get(d.value) for d in DIMENSION_ORDER
@@ -909,9 +909,9 @@ _MATRIX_COLUMNS = (
 
 def _condition_matrix(result: Any) -> str:
     """The matrix, as inline SVG: colour is the score, the number is the value."""
-    from . import charts
-    from .dimensions import normalise
-    from .metrics import METRICS
+    from xevals.core.dimensions import normalise
+    from xevals.evaluation.metrics import METRICS
+    from xevals.reporting import charts
 
     cells = [c.name for c in result.suite.cells if c.name in result.cells]
     columns, scores, raw = [], [], []
@@ -945,8 +945,8 @@ def _condition_matrix(result: Any) -> str:
 
 
 def _page_conditions(result: Any, directory: Path) -> str:
-    from . import charts
-    from .plots import _curves_from_result
+    from xevals.reporting import charts
+    from xevals.reporting.plots import _curves_from_result
 
     headers, rows = result.cell_rows()
     curves = _curves_from_result(result)
@@ -1059,7 +1059,7 @@ def _page_metrics(result: Any, directory: Path) -> str:
          "gate" if info.get("gate") else "", info.get("reason", "")]
         for name, info in result.baselines.items()
     ]
-    from . import charts
+    from xevals.reporting import charts
 
     p50 = result.metric("efficiency/latency_p50")
     p95 = result.metric("efficiency/latency_p95")
@@ -1186,7 +1186,7 @@ def write(result: Any, path: str | Path) -> Path:
 
 
 def _slug(name: str) -> str:
-    from .bench import _slug as slug
+    from xevals.evaluation.bench import _slug as slug
 
     return slug(name)
 
@@ -1306,7 +1306,7 @@ def _benchmark_radar(bench: Any) -> str:
     Falls back to the leading model alone past what the palette separates, which
     is the same limit :mod:`xevals.plots` enforces and for the same reason.
     """
-    from . import charts
+    from xevals.reporting import charts
 
     _headers, rows = bench.rows()
     if not rows:

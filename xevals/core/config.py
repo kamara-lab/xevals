@@ -173,7 +173,7 @@ def _is_dataclass_list(annotation: Any) -> bool:
 
 def _resolve_hints(cls: type) -> dict[str, Any]:
     """Field annotations, with ``from __future__ import annotations`` undone."""
-    import xevals.config as module
+    import xevals.core.config as module
 
     return typing.get_type_hints(cls, vars(module))
 

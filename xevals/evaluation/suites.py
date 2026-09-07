@@ -32,10 +32,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from .dimensions import Dimension
-from .metrics import METRICS, applies_to, for_dimension
-from .perturbations import SEVERITIES
-from .registry import Registry
+from xevals.core.dimensions import Dimension
+from xevals.core.registry import Registry
+from xevals.evaluation.metrics import METRICS, applies_to, for_dimension
+from xevals.evaluation.perturbations import SEVERITIES
 
 __all__ = [
     "SUITES",

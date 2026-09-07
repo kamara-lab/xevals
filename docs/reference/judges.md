@@ -1,3 +1,3 @@
 # `xevals.judges`
 
-::: xevals.judges
+::: xevals.evaluation.judges

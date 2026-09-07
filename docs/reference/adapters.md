@@ -1,3 +1,3 @@
 # `xevals.adapters`
 
-::: xevals.adapters
+::: xevals.integrations.adapters

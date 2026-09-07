@@ -1,3 +1,3 @@
 # `xevals.media`
 
-::: xevals.media
+::: xevals.reporting.media

@@ -1,3 +1,3 @@
 # `xevals.bench`
 
-::: xevals.bench
+::: xevals.evaluation.bench

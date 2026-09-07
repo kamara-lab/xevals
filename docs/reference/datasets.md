@@ -1,3 +1,3 @@
 # `xevals.datasets`
 
-::: xevals.datasets
+::: xevals.integrations.datasets

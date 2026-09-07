@@ -1,3 +1,3 @@
 # `xevals.report`
 
-::: xevals.report
+::: xevals.reporting.report

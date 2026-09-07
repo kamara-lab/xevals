@@ -217,6 +217,7 @@ nav:
       - Examples: guides/examples.md
       - Extending: guides/extending.md
   - Findings: findings.md
+  - Library review: review.md
   - API reference:
       - reference/index.md
       - xevals.types: reference/types.md

@@ -48,9 +48,9 @@ from typing import Any
 
 import numpy as np
 
-from .dimensions import DIMENSION_ORDER, Dimension, normalise
-from .metrics import METRICS
-from .registry import Registry
+from xevals.core.dimensions import DIMENSION_ORDER, Dimension, normalise
+from xevals.core.registry import Registry
+from xevals.evaluation.metrics import METRICS
 
 __all__ = [
     "COMPETENCE_CAUTION",
@@ -449,7 +449,7 @@ def _contrast(result: Any, tradeoff: TradeOff) -> dict[str, dict[str, Any]]:
     its ``n``, and its **worst** cell, because the mean and the worst answer
     different questions and security is a worst-case property.
     """
-    from .metrics import bootstrap_ci
+    from xevals.evaluation.metrics import bootstrap_ci
 
     out: dict[str, dict[str, Any]] = {}
     for group in tradeoff.groups:

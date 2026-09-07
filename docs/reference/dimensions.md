@@ -1,3 +1,3 @@
 # `xevals.dimensions`
 
-::: xevals.dimensions
+::: xevals.core.dimensions

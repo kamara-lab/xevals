@@ -32,9 +32,9 @@ from typing import Any
 
 import numpy as np
 
-from .errors import MissingExtra
-from .registry import Registry
-from .types import Action, Obs, Plan, Planner, Policy, Prediction, Scorer, WorldModel
+from xevals.core.errors import MissingExtra
+from xevals.core.registry import Registry
+from xevals.core.types import Action, Obs, Plan, Planner, Policy, Prediction, Scorer, WorldModel
 
 __all__ = [
     "ADAPTERS",
@@ -214,7 +214,7 @@ class TorchPolicy(_Described):
         """The module's ``encode``, when it has one. Enables representation metrics."""
         encode = getattr(self.module, "encode", None)
         if encode is None:
-            from .errors import CapabilityMissing
+            from xevals.core.errors import CapabilityMissing
 
             raise CapabilityMissing("encode")
         with self._torch.no_grad():
@@ -462,7 +462,7 @@ class XWMWorldModel(_Described):
 
         encode = getattr(self.model, "encode", None)
         if encode is None:
-            from .errors import CapabilityMissing
+            from xevals.core.errors import CapabilityMissing
 
             raise CapabilityMissing("encode")
         image = obs.get("image")

@@ -1,3 +1,3 @@
 # `xevals.suites`
 
-::: xevals.suites
+::: xevals.evaluation.suites

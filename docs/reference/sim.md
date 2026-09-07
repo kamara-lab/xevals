@@ -1,3 +1,3 @@
 # `xevals.sim`
 
-::: xevals.sim
+::: xevals.environments.sim

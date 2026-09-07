@@ -1,3 +1,3 @@
 # `xevals.robots`
 
-::: xevals.robots
+::: xevals.environments.robots

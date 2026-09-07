@@ -1,3 +1,3 @@
 # `xevals.plots`
 
-::: xevals.plots
+::: xevals.reporting.plots

@@ -35,9 +35,9 @@ from typing import Any
 
 import numpy as np
 
-from .errors import MissingExtra
-from .registry import Registry
-from .types import Env, Obs, SafetyLimits
+from xevals.core.errors import MissingExtra
+from xevals.core.registry import Registry
+from xevals.core.types import Env, Obs, SafetyLimits
 
 __all__ = [
     "ENVS",
@@ -760,7 +760,7 @@ def _load_robots() -> None:
         return
     _ROBOTS_LOADED = True
     try:
-        from . import sim  # noqa: F401
+        from xevals.environments import sim  # noqa: F401
     except ImportError:
         pass
 

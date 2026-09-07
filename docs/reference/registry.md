@@ -1,3 +1,3 @@
 # `xevals.registry`
 
-::: xevals.registry
+::: xevals.core.registry

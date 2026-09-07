@@ -23,7 +23,7 @@ from typing import Any
 
 import numpy as np
 
-from .errors import MissingExtra
+from xevals.core.errors import MissingExtra
 
 __all__ = ["overlay", "save_gif", "save_video", "tile", "write_all"]
 
@@ -118,7 +118,7 @@ def overlay(
     HUD needs no font file and no Pillow -- a video is exactly the artefact
     someone wants when their install is minimal and something is going wrong.
     """
-    from .envs import _draw_text
+    from xevals.environments.envs import _draw_text
 
     stack = _stack(frames)
     height, width = stack.shape[1:3]

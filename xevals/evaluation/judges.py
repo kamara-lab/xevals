@@ -26,8 +26,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
-from .errors import MissingExtra
-from .registry import Registry
+from xevals.core.errors import MissingExtra
+from xevals.core.registry import Registry
 
 __all__ = [
     "JUDGES",

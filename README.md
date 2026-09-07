@@ -212,6 +212,16 @@ JSON keeps full precision; LaTeX and Markdown round. The normalisation used for 
 NumPy at every boundary; observations are `dict[str, Any]` so a model reads the fields it wants. Anything unmeasurable is `null` with a reason, never zero:
 a dimension the suite did not run scores `None`, and the radar draws a hole rather than a point at the origin. Slash-namespaced registries with lazy entries. `print(..., flush=True)`, no logging framework. British spelling. Comments say why.
 
+## Package structure
+
+The implementation is grouped into `core`, `evaluation`, `integrations`,
+`environments`, and `reporting`. The CLI remains in `xevals/cli.py`.
+Existing imports such as `from xevals.runner import evaluate` still work;
+internal code uses `from xevals.evaluation.runner import evaluate`.
+
+See the [package map](docs/reference/index.md) and the
+[library review and enhancement proposals](docs/review.md).
+
 ## Tests
 
 ```bash

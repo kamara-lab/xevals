@@ -37,9 +37,9 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from .dimensions import Dimension
-from .registry import Registry
-from .types import Trajectory
+from xevals.core.dimensions import Dimension
+from xevals.core.registry import Registry
+from xevals.core.types import Trajectory
 
 __all__ = [
     "METRICS",

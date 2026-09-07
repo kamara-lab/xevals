@@ -39,12 +39,19 @@ from typing import Any
 
 import numpy as np
 
-from . import adapters, suites
-from .dimensions import DIMENSION_ORDER
-from .results import Result, markdown_table, save_table
-from .runner import Budget, _close, _env_factory, _env_fingerprint, environment_fingerprint
-from .suites import SuiteSpec
-from .types import Env
+from xevals.core.dimensions import DIMENSION_ORDER
+from xevals.core.types import Env
+from xevals.evaluation import suites
+from xevals.evaluation.runner import (
+    Budget,
+    _close,
+    _env_factory,
+    _env_fingerprint,
+    environment_fingerprint,
+)
+from xevals.evaluation.suites import SuiteSpec
+from xevals.integrations import adapters
+from xevals.reporting.results import Result, markdown_table, save_table
 
 __all__ = ["Benchmark", "benchmark"]
 
@@ -135,7 +142,7 @@ class Benchmark:
     def table(self, kind: str = "leaderboard", format: str = "md") -> str:
         """Render a table. ``kind`` is ``leaderboard`` or ``cells``."""
         headers, rows = self.rows() if kind == "leaderboard" else self.cell_rows()
-        from .results import csv_table, latex_table
+        from xevals.reporting.results import csv_table, latex_table
 
         text = {
             "md": lambda: markdown_table(headers, rows),
@@ -258,7 +265,7 @@ class Benchmark:
         curve through four dots. Pass ``scope="cells"`` for the within-run
         evidence, which has an order of magnitude more points.
         """
-        from . import tradeoffs as module
+        from xevals.reporting import tradeoffs as module
 
         if name is not None:
             return [module.analyse(self, name, scope=scope)]
@@ -266,7 +273,7 @@ class Benchmark:
 
     def _write_tradeoffs(self, directory: Path) -> None:
         """One table and one scatter per trade-off, at model scope."""
-        from .results import save_table
+        from xevals.reporting.results import save_table
 
         for analysis in self.tradeoffs():
             stem = directory / "tradeoffs" / analysis.tradeoff.name
@@ -277,7 +284,7 @@ class Benchmark:
             if rows:
                 save_table(stem.with_name(f"{analysis.tradeoff.name}-groups"), headers, rows)
             try:
-                from .plots import tradeoff as draw
+                from xevals.reporting.plots import tradeoff as draw
 
                 draw(analysis, stem.with_suffix(".png"))
             except Exception:  # noqa: BLE001 - a missing extra, or nothing to draw
@@ -285,27 +292,27 @@ class Benchmark:
 
     def _write_radar(self, directory: Path) -> None:
         try:
-            from .plots import leaderboard_radar
+            from xevals.reporting.plots import leaderboard_radar
 
             leaderboard_radar(list(self.results.values()), directory / "radar.png")
         except Exception as exc:  # noqa: BLE001 - a missing extra must not lose a run
             print(f"xevals: radar skipped ({type(exc).__name__}: {exc})", flush=True)
 
     def _write_index(self, directory: Path) -> None:
-        from .report import write_benchmark
+        from xevals.reporting.report import write_benchmark
 
         write_benchmark(self, directory)
 
     def radar(self, path: str | Path | None = None) -> Path:
         """Every model on one radar. Capped at five, where the palette runs out."""
-        from .plots import leaderboard_radar
+        from xevals.reporting.plots import leaderboard_radar
 
         target = Path(path) if path else (self.directory or Path(".")) / "radar.png"
         return leaderboard_radar(list(self.results.values()), target)
 
     def report(self, path: str | Path | None = None) -> Path:
         """(Re)build the comparison pages. Returns the leaderboard page."""
-        from .report import write_benchmark
+        from xevals.reporting.report import write_benchmark
 
         target = Path(path) if path else (self.directory or Path(".")) / "index.html"
         return write_benchmark(self, target.parent)
@@ -387,7 +394,7 @@ def benchmark(
         >>> print(bench.table())                                  # doctest: +SKIP
         >>> bench.disagreements()                                 # doctest: +SKIP
     """
-    from .runner import evaluate
+    from xevals.evaluation.runner import evaluate
 
     pairs = list(models.items()) if isinstance(models, Mapping) else list(models)
     if not pairs:
@@ -421,7 +428,7 @@ def benchmark(
     action_dim = int(getattr(probe, "action_dim", 2))
     _close(probe)
     if baselines:
-        from .runner import _run_baselines
+        from xevals.evaluation.runner import _run_baselines
 
         shared_baselines = _run_baselines(
             spec,

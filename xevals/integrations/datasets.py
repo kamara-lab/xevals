@@ -28,9 +28,9 @@ from typing import Any
 
 import numpy as np
 
-from .errors import MissingExtra
-from .registry import Registry
-from .types import Obs
+from xevals.core.errors import MissingExtra
+from xevals.core.registry import Registry
+from xevals.core.types import Obs
 
 __all__ = [
     "DATASETS",
@@ -70,7 +70,7 @@ class Episode:
 
     def to_env(self) -> Any:
         """This episode as an environment the runner can drive."""
-        from .envs import ReplayEnv
+        from xevals.environments.envs import ReplayEnv
 
         return ReplayEnv(
             self.obs,
@@ -242,7 +242,7 @@ def synthetic_episodes(
     no extras -- and so the replay gate has something to gate against in the
     documentation examples.
     """
-    from .envs import create
+    from xevals.environments.envs import create
 
     out = []
     for index in range(episodes):

@@ -28,9 +28,9 @@ from typing import Any
 
 import numpy as np
 
-from .dimensions import DIMENSION_ORDER
-from .dimensions import color as dimension_color
-from .errors import MissingExtra
+from xevals.core.dimensions import DIMENSION_ORDER
+from xevals.core.dimensions import color as dimension_color
+from xevals.core.errors import MissingExtra
 
 __all__ = [
     "ACCENT",
@@ -588,8 +588,8 @@ def heatmap(result: Any, path: str | Path) -> Path:
     plt = _matplotlib()
     from matplotlib.colors import Normalize
 
-    from .dimensions import normalise
-    from .metrics import METRICS
+    from xevals.core.dimensions import normalise
+    from xevals.evaluation.metrics import METRICS
 
     cells = [c.name for c in result.suite.cells if c.name in result.cells]
     columns = []

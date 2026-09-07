@@ -1,3 +1,3 @@
 # `xevals.envs`
 
-::: xevals.envs
+::: xevals.environments.envs

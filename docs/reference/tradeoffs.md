@@ -1,3 +1,3 @@
 # `xevals.tradeoffs`
 
-::: xevals.tradeoffs
+::: xevals.reporting.tradeoffs

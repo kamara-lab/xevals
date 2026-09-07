@@ -1,3 +1,3 @@
 # `xevals.types`
 
-::: xevals.types
+::: xevals.core.types

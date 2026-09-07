@@ -48,10 +48,10 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from .dimensions import Dimension
-from .registry import Registry
-from .seeding import spawn
-from .types import Action, Obs
+from xevals.core.dimensions import Dimension
+from xevals.core.registry import Registry
+from xevals.core.seeding import spawn
+from xevals.core.types import Action, Obs
 
 __all__ = [
     "PERTURBATIONS",
@@ -658,7 +658,7 @@ class PhysicsChange(_Base):
         """Scale the parameter on ``env``, or explain why it cannot be scaled."""
         setter = getattr(env, "set_physics", None)
         if setter is None:
-            from .errors import CapabilityMissing
+            from xevals.core.errors import CapabilityMissing
 
             raise CapabilityMissing("set_physics", self.name)
         rng = self.rng(seed, "physics")
@@ -791,7 +791,7 @@ class SceneTextInjection(_Base):
     def apply_obs(self, obs: Obs, *, seed: int = 0) -> Obs:
         """Paint the text directly, for environments that cannot render it."""
         if any(_is_image(v) for v in obs.values()) and not obs.get("_scene_text_rendered"):
-            from .envs import _draw_text
+            from xevals.environments.envs import _draw_text
 
             out = dict(obs)
             for key, value in obs.items():

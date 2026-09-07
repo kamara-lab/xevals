@@ -44,12 +44,14 @@ from typing import Any
 
 import numpy as np
 
-from . import adapters, envs, metrics, perturbations, suites
-from .dimensions import Dimension, DimensionScore, score_dimension
-from .errors import CapabilityMissing
-from .seeding import seeds_for, set_seed
-from .suites import Cell, SuiteSpec
-from .types import Env, Obs, SafetyLimits, Trajectory
+from xevals.core.dimensions import Dimension, DimensionScore, score_dimension
+from xevals.core.errors import CapabilityMissing
+from xevals.core.seeding import seeds_for, set_seed
+from xevals.core.types import Env, Obs, SafetyLimits, Trajectory
+from xevals.environments import envs
+from xevals.evaluation import metrics, perturbations, suites
+from xevals.evaluation.suites import Cell, SuiteSpec
+from xevals.integrations import adapters
 
 __all__ = [
     "AGGREGATION",
@@ -516,7 +518,7 @@ def evaluate(
         ...     xevals.wrap(my_model), "synthetic/reach", suite="full", out=None
         ... )
     """
-    from .results import build_result
+    from xevals.reporting.results import build_result
 
     spec = suites.create(suite).resolved()
     episodes = int(episodes if episodes is not None else spec.episodes)

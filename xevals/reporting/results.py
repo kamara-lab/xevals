@@ -43,9 +43,9 @@ from typing import Any
 
 import numpy as np
 
-from .dimensions import DIMENSION_ORDER, NORMALISERS, Dimension, DimensionScore
-from .metrics import MetricValue
-from .suites import SuiteSpec
+from xevals.core.dimensions import DIMENSION_ORDER, NORMALISERS, Dimension, DimensionScore
+from xevals.evaluation.metrics import MetricValue
+from xevals.evaluation.suites import SuiteSpec
 
 __all__ = [
     "SCHEMA",
@@ -594,7 +594,7 @@ class Result:
             if rows:
                 save_table(stem.with_name(f"{analysis.tradeoff.name}-groups"), headers, rows)
             try:
-                from . import plots
+                from xevals.reporting import plots
 
                 plots.tradeoff(analysis, stem.with_suffix(".png"))
             except Exception:  # noqa: BLE001 - a missing extra, or nothing to draw
@@ -602,7 +602,7 @@ class Result:
 
     def _write_figures(self, directory: Path) -> None:
         try:
-            from . import plots
+            from xevals.reporting import plots
 
             plots.write_all(self, directory / "figures")
         except Exception as exc:  # noqa: BLE001 - a missing extra must not lose a run
@@ -612,7 +612,7 @@ class Result:
         if not self.trajectories:
             return
         try:
-            from . import media
+            from xevals.reporting import media
 
             media.write_all(self, directory / "videos")
         except Exception as exc:  # noqa: BLE001
@@ -620,7 +620,7 @@ class Result:
 
     def _write_report(self, directory: Path) -> None:
         try:
-            from . import report
+            from xevals.reporting import report
 
             report.write(self, directory / "report.html")
         except Exception as exc:  # noqa: BLE001
@@ -628,7 +628,7 @@ class Result:
 
     def report(self, path: str | Path | None = None) -> Path:
         """(Re)build the HTML report, from the saved run if there is one."""
-        from . import report as report_module
+        from xevals.reporting import report as report_module
 
         target = Path(path) if path else (self.directory or Path(".")) / "report.html"
         return report_module.write(self, target)
@@ -640,7 +640,7 @@ class Result:
         ``tension`` may well be ``"undetermined"``. That is a result: the run
         does not support a claim either way, and saying so is the point.
         """
-        from . import tradeoffs as module
+        from xevals.reporting import tradeoffs as module
 
         if name is not None:
             return [module.analyse(self, name)]
@@ -648,7 +648,7 @@ class Result:
 
     def radar(self, path: str | Path | None = None) -> Path:
         """Write the dimension radar. Needs ``xevals[plots]``."""
-        from . import plots
+        from xevals.reporting import plots
 
         target = Path(path) if path else (self.directory or Path(".")) / "figures" / "radar.png"
         return plots.radar(self, target)
@@ -671,7 +671,7 @@ class Result:
                 f"{directory / 'run.json'} uses schema {data['schema']}, but this xevals "
                 f"understands up to {SCHEMA}; upgrade xevals to read it"
             )
-        from .suites import from_dict as suite_from_dict
+        from xevals.evaluation.suites import from_dict as suite_from_dict
 
         suite = suite_from_dict(
             {k: v for k, v in data["suite"].items() if k != "cells"}
@@ -720,7 +720,7 @@ def build_result(
     control_hz: float = 10.0,
 ) -> Result:
     """Score every cell, collapse to dimensions, and package the result."""
-    from .runner import dimension_scores, score_cells
+    from xevals.evaluation.runner import dimension_scores, score_cells
 
     score_cells(spec, cells, model_info=model_info, control_hz=control_hz)
     result = Result(
@@ -780,8 +780,8 @@ def compare(a: str | Path | Result, b: str | Path | Result) -> tuple[list[str], 
     a difference significant that a reader could not see in the error bars, which
     is the failure mode a comparison table has to avoid.
     """
-    from .dimensions import normalise
-    from .metrics import METRICS
+    from xevals.core.dimensions import normalise
+    from xevals.evaluation.metrics import METRICS
 
     left = a if isinstance(a, Result) else Result.load(a)
     right = b if isinstance(b, Result) else Result.load(b)

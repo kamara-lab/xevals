@@ -1,3 +1,3 @@
 # `xevals.config`
 
-::: xevals.config
+::: xevals.core.config

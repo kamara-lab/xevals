@@ -13,30 +13,12 @@ directory that can be diffed, re-scored and aggregated.
 
 Layout
 ------
-Flat, one module per area, because a small library with deep packages is harder
-to read than a small library with plain modules:
-
-======================  ==================================================
-:mod:`xevals.types`      Protocols, ``Trajectory``, ``SafetyLimits``
-:mod:`xevals.dimensions` the seven dimensions and their normalisation
-:mod:`xevals.adapters`   wrapping torch / jax / LeRobot / HF / HTTP / xwm
-:mod:`xevals.envs`       the built-in synthetic world, Gym, replay, wrappers
-:mod:`xevals.robots`     the Menagerie arms and the scene they are evaluated in
-:mod:`xevals.sim`        manipulation tasks on those arms, in MuJoCo or Newton
-:mod:`xevals.datasets`   readers for LeRobot, HDF5 and NPZ corpora
-:mod:`xevals.perturbations`  visual, sensor, action, language, dynamics, attack
-:mod:`xevals.metrics`    pure functions over trajectories, one per measurement
-:mod:`xevals.judges`     rule-based verdicts on text; an optional LLM judge
-:mod:`xevals.suites`     which cells to run, on which splits
-:mod:`xevals.runner`     rollouts, baselines, the replay gate, budgets
-:mod:`xevals.bench`     several models under identical conditions
-:mod:`xevals.results`    the run directory, tables, leaderboards, diffs
-:mod:`xevals.media`      videos and GIFs with a HUD
-:mod:`xevals.plots`      radar, severity curves, heatmaps, in the brand palette
-:mod:`xevals.report`     one self-contained HTML page
-:mod:`xevals.config`     TOML configs, ``extends``, dotted overrides
-:mod:`xevals.cli`        ``xevals run|compare|report|list|doctor``
-======================  ==================================================
+Implementation modules are grouped by responsibility: ``core`` (contracts and
+configuration), ``evaluation`` (suites, rollouts and scoring), ``integrations``
+(model adapters and datasets), ``environments`` (worlds and simulators), and
+``reporting`` (results, analysis and output). The CLI stays at the package root.
+Existing imports such as ``xevals.runner`` remain supported as module aliases;
+new internal code imports from the implementation packages directly.
 
 Conventions
 -----------
@@ -58,37 +40,59 @@ Quick start
 
 from __future__ import annotations
 
-from . import (
-    adapters,
-    bench,
-    config,
-    datasets,
+import sys as _sys
+
+from .core import config, dimensions, errors, registry, seeding, types
+from .core.dimensions import Dimension, DimensionScore
+from .core.errors import CapabilityMissing, GateFailed, MissingExtra, XevalsError
+from .core.seeding import set_seed
+from .core.types import (
+    Env,
+    Planner,
+    Policy,
+    SafetyLimits,
+    Scorer,
+    Trajectory,
+    Violation,
+    WorldModel,
+)
+from .environments import envs
+from .evaluation import bench, judges, metrics, perturbations, runner, suites
+from .evaluation.bench import Benchmark, benchmark
+from .evaluation.metrics import MetricValue
+from .evaluation.runner import Budget, evaluate, rollout
+from .evaluation.suites import Cell, SuiteSpec
+from .integrations import adapters, datasets
+from .integrations.adapters import wrap
+from .reporting import charts, media, plots, report, results, tradeoffs
+from .reporting.results import Result
+
+# Both import paths share one module, including registries and monkeypatches.
+for _module in (
+    types,
+    errors,
+    registry,
+    seeding,
     dimensions,
-    envs,
-    judges,
-    media,
+    config,
+    runner,
+    bench,
+    suites,
     metrics,
     perturbations,
-    plots,
-    registry,
-    report,
+    judges,
+    adapters,
+    datasets,
+    envs,
     results,
-    runner,
-    seeding,
-    suites,
+    report,
+    charts,
+    plots,
+    media,
     tradeoffs,
-    types,
-)
-from .adapters import wrap
-from .bench import Benchmark, benchmark
-from .dimensions import Dimension, DimensionScore
-from .errors import CapabilityMissing, GateFailed, MissingExtra, XevalsError
-from .metrics import MetricValue
-from .results import Result
-from .runner import Budget, evaluate, rollout
-from .seeding import set_seed
-from .suites import Cell, SuiteSpec
-from .types import Env, Planner, Policy, SafetyLimits, Scorer, Trajectory, Violation, WorldModel
+):
+    _sys.modules[f"{__name__}.{_module.__name__.rsplit('.', 1)[-1]}"] = _module
+del _module, _sys
 
 __version__ = "0.1.0"
 

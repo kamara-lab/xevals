@@ -1,3 +1,3 @@
 # `xevals.runner`
 
-::: xevals.runner
+::: xevals.evaluation.runner

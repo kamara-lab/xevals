@@ -1,12 +1,21 @@
 # API reference
 
-Eighteen modules, flat. A small library with deep packages is harder to read
-than a small library with plain modules, so each area is one file and each
-file's module docstring is its page.
+The implementation is grouped into five packages:
 
-Every public name is re-exported from `xevals` itself, so `xevals.evaluate`,
-`xevals.wrap`, `xevals.Result` and `xevals.Trajectory` are the four you will
-actually type.
+| Package | Responsibility |
+| --- | --- |
+| `xevals.core` | Protocols, errors, registries, seeds, dimensions and configuration |
+| `xevals.evaluation` | Suites, rollouts, benchmarks, metrics, perturbations and judges |
+| `xevals.integrations` | Model adapters and dataset readers |
+| `xevals.environments` | Synthetic and replay environments, robots and simulators |
+| `xevals.reporting` | Results, trade-offs, charts, plots, media and HTML reports |
+
+The CLI remains in `xevals.cli`. Common entry points are re-exported from
+`xevals`: `evaluate`, `wrap`, `Result` and `Trajectory`.
+
+Existing module imports remain supported: `xevals.runner` and
+`xevals.evaluation.runner` refer to the same module. Use the grouped paths when
+adding internal imports. The reference pages below retain their existing URLs.
 
 ## Contracts
 

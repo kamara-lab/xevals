@@ -1,3 +1,3 @@
 # `xevals.metrics`
 
-::: xevals.metrics
+::: xevals.evaluation.metrics
