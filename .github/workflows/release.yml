@@ -95,7 +95,7 @@ jobs:
       - name: The core still imports with numpy alone
         run: |
           uv venv /tmp/bare
-          VIRTUAL_ENV=/tmp/bare uv pip install --no-cache .
+          uv pip install --python /tmp/bare/bin/python --no-cache .
           /tmp/bare/bin/python -c "import xevals, xevals.plots, xevals.media; print(xevals.__version__)"
 
   build:
