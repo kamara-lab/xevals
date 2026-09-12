@@ -43,11 +43,11 @@ vocabulary instead: **seven named dimensions, in a fixed order**, a fixed
 severity ladder, paired baselines, and one run directory per evaluation.
 
 <figure class="xevals-diagram" markdown="1">
-  ![How xevals evaluates a model](assets/method-light.svg#only-light){ width="900" } ![How xevals evaluates a model](assets/method-dark.svg#only-dark){ width="900" }
+  ![xevals flowchart: model to adapter, paired clean and perturbed evaluations, trajectories, metrics, seven dimensions, and saved report](assets/method-light.svg#only-light){ width="900" } ![xevals flowchart: model to adapter, paired clean and perturbed evaluations, trajectories, metrics, seven dimensions, and saved report](assets/method-dark.svg#only-dark){ width="900" }
   <figcaption>
-    One pass: a model goes in, a run directory comes out. The cell grid under
-    <em>runner</em> is what "runs a suite" means (a sweep, not a loop), and
-    the bars under <em>dimensions</em> are a real run's scores, not a decorative sequence.
+    Clean and perturbed conditions share episode seeds, so changes in behaviour
+    can be compared. Each run records metrics, seven dimension scores, and the
+    provenance needed to interpret the results.
   </figcaption>
 </figure>
 

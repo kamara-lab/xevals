@@ -28,7 +28,7 @@ the standard library; torch, jax, simulators, video codecs and matplotlib are ex
 <div align="center">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/method-dark.svg">
-  <img alt="A model is wrapped by an adapter, run over a grid of cells, scored by metrics that are pure functions over trajectories, collapsed into seven dimensions, and written to a run directory." src="docs/assets/method-light.svg" width="900">
+  <img alt="xevals flowchart: model to adapter, paired clean and perturbed evaluations, trajectories, metrics, seven dimensions, and saved report." src="docs/assets/method-light.svg" width="900">
 </picture>
 </div>
 
