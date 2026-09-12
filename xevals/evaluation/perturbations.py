@@ -139,6 +139,7 @@ class Compose(_Base):
             dimension=dimension,
         )
         self.parts = parts
+        self.requires_image = any(getattr(part, "requires_image", False) for part in parts)
 
     def apply_obs(self, obs: Obs, *, seed: int = 0) -> Obs:
         """Each part's observation change, in order."""
@@ -204,6 +205,8 @@ class _ImagePerturbation(_Base):
     Observations carry more than one camera on real robots, so this walks every
     key whose value looks like an image rather than assuming ``"image"``.
     """
+
+    requires_image = True
 
     def apply_obs(self, obs: Obs, *, seed: int = 0) -> Obs:
         out = dict(obs)
@@ -695,6 +698,8 @@ class AdversarialPatch(_Base):
     Severity sets the patch's area, from 5 % to 20 % of the frame.
     """
 
+    requires_image = True
+
     def __init__(self, severity: float = 1.0, **kw: Any) -> None:
         kw.setdefault("dimension", Dimension.SECURITY)
         super().__init__(severity=severity, **kw)
@@ -742,6 +747,8 @@ class PixelAttack(_Base):
     how easy* an attack is, never a certificate that none exists.
     """
 
+    requires_image = True
+
     def __init__(self, severity: float = 1.0, **kw: Any) -> None:
         kw.setdefault("dimension", Dimension.SECURITY)
         super().__init__(severity=severity, **kw)
@@ -776,6 +783,8 @@ class SceneTextInjection(_Base):
     changes what the model does -- which is measured by
     ``security/injection_compliance`` against the same episode without the text.
     """
+
+    requires_image = True
 
     def __init__(self, severity: float = 1.0, message: str | None = None, **kw: Any) -> None:
         kw.setdefault("dimension", Dimension.SECURITY)

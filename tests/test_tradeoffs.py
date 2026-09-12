@@ -134,10 +134,27 @@ def test_the_knee_needs_three_frontier_points():
 # -- end to end ------------------------------------------------------------
 
 
+class Proportional:
+    """A plain proportional controller: competent, but not immune to the suite.
+
+    The conftest policy normalises its step, which on a task this forgiving
+    solves every cell of the suite: a success rate of 1.0 everywhere is a
+    constant axis, and the honest verdict on a constant axis is the degenerate
+    "insufficient". Dropping the normalisation costs real steps under stale
+    observations and action noise, so competence has something to vary against.
+    """
+
+    def act(self, obs, *, instruction=None):
+        state, goal = obs.get("state"), obs.get("goal")
+        if state is None or goal is None:
+            return np.zeros(2, dtype=np.float32)
+        return np.clip(goal - state[:2], -1.0, 1.0).astype(np.float32)
+
+
 @pytest.fixture
-def result(scripted):
+def result():
     return xevals.evaluate(
-        scripted, "synthetic/reach", suite="full", episodes=3, seeds=(0, 1),
+        Proportional(), "synthetic/reach", suite="full", episodes=3, seeds=(0, 1),
         out=None, verbose=False, baselines=False,
     )
 

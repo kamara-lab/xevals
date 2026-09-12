@@ -107,3 +107,40 @@ can be compared on *what was evaluated* and not only on the numbers.
     options:
       heading_level: 2
       members: false
+
+## Independent batched inference
+
+CPU episode batching is an explicit capability. A batch row must produce the
+same action regardless of other rows, row ordering, previous calls, or batch
+size. Recurrent models and policies with action queues should keep using the
+serial runner.
+
+```python
+policy = xevals.wrap(
+    my_torch_module,
+    device="cpu",
+    feature_keys=("state",),
+    action_dim=4,
+    batch_mode="stateless",
+)
+actions = policy.act_batch(observations)       # (B, A), float32 NumPy
+```
+
+Torch preserves a model's existing device unless `device=` is supplied, matches
+floating inputs to the model's dtype, and preserves integer tensor inputs. Single
+actions must have shape `(A,)` or `(1, A)`. Action chunks, incorrect declared
+action dimensions, and nonfinite actions are errors; chunks are never flattened
+into one action.
+
+For a callable, provide a separate batch function. It receives a list of
+observation dictionaries and an `instructions=` list, and returns `(B, A)`:
+
+```python
+policy = xevals.wrap(single_action_fn, batch_fn=batch_action_fn, action_dim=4)
+```
+
+A custom `xevals.BatchPolicy` exposes `batch_mode = "stateless"` and
+`act_batch(observations, *, instructions=None)`. It also needs `act()` for the
+serial reference path. This is a promise of independent inference, including
+any optional confidence function; xevals cannot infer it from a model's layers.
+See [CPU evaluation](cpu-evaluation.md) for execution options and timing semantics.

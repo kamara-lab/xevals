@@ -202,6 +202,7 @@ nav:
       - Randomness: concepts/randomness.md
   - Guides:
       - Wrapping models: guides/wrapping-models.md
+      - CPU evaluation: guides/cpu-evaluation.md
       - Environments: guides/environments.md
       - Robots: guides/robots.md
       - Isaac Lab and Newton: guides/isaaclab.md

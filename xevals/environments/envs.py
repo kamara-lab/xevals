@@ -626,6 +626,18 @@ class PerturbedEnv:
         info["perturbation"] = self.perturbation.name
         return self._obs(obs), reward, done, info
 
+    def advance(self, action: np.ndarray) -> tuple[float, bool, dict[str, Any]]:
+        """Advance a split-step environment, leaving observations to the caller."""
+        apply_action = getattr(self.perturbation, "apply_action", None)
+        if apply_action is not None:
+            action = apply_action(np.asarray(action), seed=self._episode)
+        reward, done, info = self.env.advance(action)
+        return reward, done, {**info, "perturbation": self.perturbation.name}
+
+    def observe(self) -> Obs:
+        """Render and perturb exactly one observation on the coordinating thread."""
+        return self._obs(self.env.observe())
+
     def _obs(self, obs: Obs) -> Obs:
         apply_obs = getattr(self.perturbation, "apply_obs", None)
         if apply_obs is not None:

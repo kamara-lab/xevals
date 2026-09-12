@@ -45,6 +45,7 @@ import numpy as np
 
 __all__ = [
     "Action",
+    "BatchPolicy",
     "Env",
     "HasConfidence",
     "HasCost",
@@ -87,6 +88,23 @@ class Policy(Protocol):
 
     def act(self, obs: Obs, *, instruction: str | None = ...) -> Action:
         """One action for one observation."""
+        ...
+
+
+@runtime_checkable
+class BatchPolicy(Policy, Protocol):
+    """Opt-in independent inference rows, without hidden state or cross-row coupling.
+
+    ``batch_mode`` must be ``"stateless"``. Results must not depend on batch size,
+    row order, or prior calls. Each observation and instruction maps to one row
+    of a float32 ``(B, A)`` array. Stateful/chunked policies use the serial runner.
+    """
+
+    batch_mode: str | None
+
+    def act_batch(
+        self, observations: Sequence[Obs], *, instructions: Sequence[str | None] | None = None,
+    ) -> np.ndarray:
         ...
 
 
