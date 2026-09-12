@@ -27,12 +27,12 @@ callability.
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import numpy as np
 
-from xevals.core.errors import MissingExtra
+from xevals.core.errors import CapabilityMissing, MissingExtra
 from xevals.core.registry import Registry
 from xevals.core.types import Action, Obs, Plan, Planner, Policy, Prediction, Scorer, WorldModel
 
@@ -75,6 +75,8 @@ def _features(obs: Obs, keys: tuple[str, ...] | None = None) -> np.ndarray:
     for key in chosen:
         value = obs.get(key)
         if value is None or isinstance(value, str):
+            if keys is not None:
+                raise ValueError(f"required numeric feature {key!r} is missing or nonnumeric")
             continue
         parts.append(np.asarray(value, dtype=np.float32).reshape(-1))
     if not parts:
@@ -83,12 +85,58 @@ def _features(obs: Obs, keys: tuple[str, ...] | None = None) -> np.ndarray:
 
 
 def _to_numpy(value: Any) -> np.ndarray:
-    """Whatever a framework returned, as a NumPy array on the host."""
-    for attr in ("detach", "cpu", "numpy"):
+    """Host float32, including Torch dtypes NumPy cannot represent (bfloat16)."""
+    for attr in ("detach", "cpu"):
         candidate = getattr(value, attr, None)
         if callable(candidate):
             value = candidate()
+    if callable(getattr(value, "numpy", None)):
+        if callable(getattr(value, "float", None)):
+            value = value.float()
+        value = value.numpy()
     return np.asarray(value, dtype=np.float32)
+
+
+def validate_action(value: Any, action_dim: int | None = None) -> Action:
+    """Validate one action without turning a batch or action chunk into a vector."""
+    action = _to_numpy(value)
+    if action.ndim == 2 and action.shape[0] == 1:
+        action = action[0]
+    if action.ndim != 1 or not action.size:
+        raise ValueError(f"expected one action (A,) or (1, A), got {action.shape}")
+    if action_dim is not None and action.shape != (action_dim,):
+        raise ValueError(f"expected {action_dim} action entries, got {action.shape}")
+    if not np.isfinite(action).all():
+        raise ValueError("action contains NaN or infinity")
+    return action.copy()
+
+
+def validate_batch(value: Any, size: int, action_dim: int | None = None) -> np.ndarray:
+    """Validate the batch axes; individual rows are validated by the runner."""
+    actions = _to_numpy(value)
+    if actions.ndim != 2 or actions.shape[0] != size or actions.shape[1] == 0:
+        raise ValueError(f"expected actions (B, A) with B={size}, got {actions.shape}")
+    if action_dim is not None and actions.shape[1] != action_dim:
+        raise ValueError(f"expected {action_dim} action entries, got {actions.shape}")
+    return actions.copy()
+
+
+def _placement(module: Any, torch: Any, device: str | None) -> tuple[str, Any]:
+    """Preserve a module's placement; parameterless modules also have buffers."""
+    from itertools import chain
+
+    tensors = list(chain(module.parameters(), module.buffers()))
+    devices = {str(t.device) for t in tensors}
+    if device is None and len(devices) > 1:
+        raise ValueError("model spans multiple devices; supply an explicit device")
+    chosen = str(device or next(iter(devices), "cpu"))
+    dtype = next((t.dtype for t in tensors if t.is_floating_point()), torch.float32)
+    return chosen, dtype
+
+
+def _tensor(value: Any, torch: Any, device: str, dtype: Any) -> Any:
+    tensor = torch.as_tensor(np.asarray(value))
+    return tensor.to(device=device, dtype=dtype if tensor.is_floating_point() else tensor.dtype)
 
 
 class _Described:
@@ -131,10 +179,13 @@ class CallablePolicy(_Described):
         *,
         action_dim: int | None = None,
         feature_keys: tuple[str, ...] | None = None,
+        batch_fn: Callable[..., Any] | None = None,
     ) -> None:
         import inspect
 
         self.fn = fn
+        self.batch_fn = batch_fn
+        self.batch_mode = "stateless" if batch_fn is not None else None
         self.action_dim = action_dim
         self.feature_keys = feature_keys
         try:
@@ -151,10 +202,24 @@ class CallablePolicy(_Described):
             out = self.fn(payload, instruction=instruction)
         else:
             out = self.fn(payload)
-        return np.asarray(out, dtype=np.float32).reshape(-1)
+        return validate_action(out, self.action_dim)
+
+    def act_batch(self, observations: Sequence[Obs], *, instructions=None) -> np.ndarray:
+        """Call an explicitly supplied stateless ``batch_fn(obs_list, instructions=...)``."""
+        if self.batch_fn is None:
+            raise CapabilityMissing("act_batch")
+        return validate_batch(
+            self.batch_fn(observations, instructions=instructions),
+            len(observations), self.action_dim,
+        )
 
     def _describe(self) -> dict[str, Any]:
-        return {"callable": getattr(self.fn, "__name__", type(self.fn).__name__)}
+        return {
+            "callable": getattr(self.fn, "__name__", type(self.fn).__name__),
+            "feature_keys": self.feature_keys,
+            "action_dim": self.action_dim,
+            "batch_mode": self.batch_mode,
+        }
 
 
 class TorchPolicy(_Described):
@@ -176,15 +241,21 @@ class TorchPolicy(_Described):
         device: str | None = None,
         feature_keys: tuple[str, ...] | None = None,
         dict_input: bool | None = None,
+        action_dim: int | None = None,
+        batch_mode: str | None = None,
     ) -> None:
         try:
             import torch
         except ImportError as exc:  # pragma: no cover - depends on the install
             raise MissingExtra("torch", "torch", "to wrap a torch.nn.Module") from exc
         self._torch = torch
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        if batch_mode not in (None, "stateless"):
+            raise ValueError("batch_mode must be None or 'stateless'")
+        self.device, self.dtype = _placement(module, torch, device)
         self.module = module.to(self.device).eval()
         self.feature_keys = feature_keys
+        self.action_dim = action_dim
+        self.batch_mode = batch_mode
         # A module whose forward names an observation dict takes one; otherwise
         # it gets the flattened feature vector.
         self.dict_input = (
@@ -194,21 +265,42 @@ class TorchPolicy(_Described):
             .co_varnames[:2]
         )
 
-    def act(self, obs: Obs, *, instruction: str | None = None) -> Action:
-        """One action, with the module in eval mode and gradients off."""
+    def __getattr__(self, name: str) -> Any:
+        # Preserve recurrent/chunked module state management on the serial path,
+        # without advertising reset on modules that do not implement it.
+        if name == "reset":
+            return getattr(self.module, name)
+        raise AttributeError(name)
+
+    def _payload(self, observations: Sequence[Obs]) -> Any:
         torch = self._torch
-        with torch.no_grad():
-            if self.dict_input:
-                payload = {
-                    k: torch.as_tensor(np.asarray(v)).to(self.device).unsqueeze(0)
-                    for k, v in obs.items()
-                    if not isinstance(v, str)
-                }
-                out = self.module(payload)
-            else:
-                x = torch.as_tensor(_features(obs, self.feature_keys)).to(self.device).unsqueeze(0)
-                out = self.module(x)
-        return _to_numpy(out).reshape(-1)
+        if not self.dict_input:
+            values = np.stack([_features(obs, self.feature_keys) for obs in observations])
+            return _tensor(values, torch, self.device, self.dtype)
+        keys = self.feature_keys or tuple(
+            k for k, v in observations[0].items() if v is not None and not isinstance(v, str)
+        )
+        if any(set(k for k, v in obs.items() if v is not None and not isinstance(v, str))
+               != set(keys) for obs in observations) and self.feature_keys is None:
+            raise ValueError("batched dict observations must have identical numeric keys")
+        return {
+            k: _tensor(np.stack([obs[k] for obs in observations]), torch, self.device, self.dtype)
+            for k in keys
+        }
+
+    def act(self, obs: Obs, *, instruction: str | None = None) -> Action:
+        """One action, with floating inputs matching the checkpoint's dtype."""
+        with self._torch.no_grad():
+            out = self.module(self._payload([obs]))
+        return validate_action(out, self.action_dim)
+
+    def act_batch(self, observations: Sequence[Obs], *, instructions=None) -> np.ndarray:
+        """Independent rows; opt in only for a stateless, batch-independent module."""
+        if self.batch_mode != "stateless":
+            raise CapabilityMissing("stateless act_batch")
+        with self._torch.no_grad():
+            out = self.module(self._payload(observations))
+        return validate_batch(out, len(observations), self.action_dim)
 
     def encode(self, obs: Obs) -> np.ndarray:
         """The module's ``encode``, when it has one. Enables representation metrics."""
@@ -218,8 +310,7 @@ class TorchPolicy(_Described):
 
             raise CapabilityMissing("encode")
         with self._torch.no_grad():
-            x = self._torch.as_tensor(_features(obs, self.feature_keys)).to(self.device)
-            return _to_numpy(encode(x.unsqueeze(0))).reshape(-1)
+            return _to_numpy(encode(self._payload([obs]))).reshape(-1)
 
     def cost(self) -> dict[str, Any]:
         """Parameter count, device and dtype -- the efficiency dimension's inputs."""
@@ -228,7 +319,11 @@ class TorchPolicy(_Described):
         return {"params": params, "device": str(self.device), "dtype": sorted(dtypes)}
 
     def _describe(self) -> dict[str, Any]:
-        return {"module": type(self.module).__name__, **self.cost()}
+        return {
+            "module": type(self.module).__name__, "feature_keys": self.feature_keys,
+            "dict_input": self.dict_input, "batch_mode": self.batch_mode,
+            "action_dim": self.action_dim, **self.cost(),
+        }
 
 
 class JaxPolicy(_Described):
@@ -252,7 +347,7 @@ class JaxPolicy(_Described):
     def act(self, obs: Obs, *, instruction: str | None = None) -> Action:
         """One action, pulled back to the host."""
         out = self.fn(self._jax.numpy.asarray(_features(obs, self.feature_keys)))
-        return np.asarray(self._jax.device_get(out), dtype=np.float32).reshape(-1)
+        return validate_action(self._jax.device_get(out))
 
     def _describe(self) -> dict[str, Any]:
         return {"callable": getattr(self.fn, "__name__", type(self.fn).__name__)}
@@ -276,7 +371,7 @@ class LeRobotPolicy(_Described):
         except ImportError as exc:  # pragma: no cover - depends on the install
             raise MissingExtra("torch", "lerobot", "to wrap a LeRobot policy") from exc
         self._torch = torch
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.device, self.dtype = _placement(policy, torch, device)
         self.policy = policy.to(self.device).eval()
 
     def reset(self) -> None:
@@ -304,7 +399,7 @@ class LeRobotPolicy(_Described):
             batch["task"] = [instruction]
         with torch.no_grad():
             action = self.policy.select_action(batch)
-        return _to_numpy(action).reshape(-1)
+        return validate_action(action)
 
     def _describe(self) -> dict[str, Any]:
         params = sum(int(p.numel()) for p in self.policy.parameters())
@@ -336,7 +431,7 @@ class HFVLAPolicy(_Described):
         prompt: str = "In: What action should the robot take to {instruction}?\nOut:",
         unnorm_key: str | None = None,
         device: str | None = None,
-        dtype: str = "bfloat16",
+        dtype: str | None = None,
     ) -> None:
         try:
             import torch
@@ -345,12 +440,13 @@ class HFVLAPolicy(_Described):
             raise MissingExtra("transformers", "torch", f"to load the VLA {model_id!r}") from exc
         self._torch = torch
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.dtype = getattr(torch, dtype or ("float32" if self.device == "cpu" else "bfloat16"))
         self.prompt = prompt
         self.unnorm_key = unnorm_key
         self.processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
         self.model = AutoModelForVision2Seq.from_pretrained(
-            model_id, torch_dtype=getattr(torch, dtype), trust_remote_code=True
-        ).to(self.device)
+            model_id, torch_dtype=self.dtype, trust_remote_code=True
+        ).to(self.device).eval()
         self.model_id = model_id
 
     def act(self, obs: Obs, *, instruction: str | None = None) -> Action:
@@ -361,17 +457,24 @@ class HFVLAPolicy(_Described):
         if image is None:
             raise ValueError("a VLA needs an 'image' field in the observation")
         text = self.prompt.format(instruction=instruction or obs.get("instruction", ""))
-        inputs = self.processor(text, Image.fromarray(np.asarray(image, dtype=np.uint8)))
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        inputs = self.processor(
+            text, Image.fromarray(np.asarray(image, dtype=np.uint8)), return_tensors="pt"
+        )
+        inputs = {
+            k: v.to(device=self.device, dtype=self.dtype if v.is_floating_point() else v.dtype)
+            for k, v in inputs.items()
+        }
         with self._torch.no_grad():
             kwargs = {"unnorm_key": self.unnorm_key} if self.unnorm_key else {}
             action = self.model.predict_action(**inputs, do_sample=False, **kwargs)
-        return np.asarray(action, dtype=np.float32).reshape(-1)
+        return validate_action(action)
 
     def _describe(self) -> dict[str, Any]:
         return {
             "model_id": self.model_id,
             "device": self.device,
+            "dtype": str(self.dtype),
+            "prompt": self.prompt,
             "unnorm_key": self.unnorm_key,
             "normalised_output": self.unnorm_key is None,
         }
@@ -425,7 +528,7 @@ class RemotePolicy(_Described):
         with urllib.request.urlopen(request, timeout=self.timeout) as response:  # noqa: S310
             body = json.loads(response.read().decode())
         self.last_latency_ms = (time.perf_counter() - start) * 1e3
-        return np.asarray(body[self.action_key], dtype=np.float32).reshape(-1)
+        return validate_action(body[self.action_key])
 
     def _describe(self) -> dict[str, Any]:
         return {"url": self.url, "timeout_s": self.timeout}
@@ -564,17 +667,17 @@ def detect(obj: Any) -> str | None:
     Checks base classes by *name* rather than by importing the framework, so
     detection never pulls torch into a process that does not have it.
     """
-    if isinstance(obj, (Policy, WorldModel, Planner, Scorer)) and not callable(obj):
+    if isinstance(obj, (Policy, WorldModel, Planner, Scorer)):
         return None
     bases = {c.__module__.split(".")[0] + "." + c.__name__ for c in type(obj).__mro__}
-    if any(b == "torch.nn.Module" or b.endswith(".Module") and "torch" in b for b in bases):
-        return "torch"
     if any("lerobot" in c.__module__ for c in type(obj).__mro__):
         return "lerobot"
-    if any(c.__module__.split(".")[0] in ("jax", "equinox") for c in type(obj).__mro__):
-        return "jax"
     if any(c.__module__.split(".")[0] == "xwm" for c in type(obj).__mro__):
         return "xwm"
+    if any(b == "torch.Module" for b in bases):
+        return "torch"
+    if any(c.__module__.split(".")[0] in ("jax", "equinox") for c in type(obj).__mro__):
+        return "jax"
     if hasattr(obj, "messages") or hasattr(obj, "chat"):
         return "chat"
     if isinstance(obj, str) and obj.startswith(("http://", "https://")):
@@ -591,8 +694,8 @@ def wrap(obj: Any, *, kind: str | None = None, adapter: str | None = None, **hin
         obj: the model. A callable, a torch module, a JAX function, a LeRobot or
             HuggingFace policy, an xwm world model, a chat client, or a URL.
         kind: force the model kind -- ``"policy"``, ``"world_model"``,
-            ``"planner"``, ``"scorer"``. Only consulted for a bare callable,
-            where the signature genuinely does not say which it is.
+            ``"planner"``, ``"scorer"``. Selects the interface for a bare callable;
+            for other models, validates that the adapter implements this kind.
         adapter: force the adapter by name, skipping detection.
         **hints: passed to the adapter's constructor (``device``, ``prompt``,
             ``unnorm_key``, ``feature_keys``, ...).
@@ -612,14 +715,21 @@ def wrap(obj: Any, *, kind: str | None = None, adapter: str | None = None, **hin
         >>> policy.act({"state": np.zeros(4, dtype=np.float32)}).shape
         (2,)
     """
+    kinds = {"policy": "act", "world_model": "predict", "planner": "plan", "scorer": "score"}
+    if kind is not None and kind not in kinds:
+        raise ValueError(f"unknown model kind {kind!r}")
     name = adapter or detect(obj)
     if name is None:
-        return obj
-    if name == "callable" and kind and kind != "policy":
-        return _CallableOther(obj, kind)
-    if name == "remote" and isinstance(obj, str):
-        return RemotePolicy(obj, **hints)
-    return ADAPTERS.create(name, model=obj, **hints)
+        if not isinstance(obj, (Policy, WorldModel, Planner, Scorer)):
+            raise TypeError(f"cannot wrap {type(obj).__name__}; supply a model protocol or adapter")
+        result = obj
+    elif name == "callable" and kind and kind != "policy":
+        result = _CallableOther(obj, kind)
+    else:
+        result = ADAPTERS.create(name, model=obj, **hints)
+    if kind is not None and not callable(getattr(result, kinds[kind], None)):
+        raise TypeError(f"adapter {name!r} does not implement model kind {kind!r}")
+    return result
 
 
 class _CallableOther(_Described):
@@ -754,4 +864,10 @@ def fingerprint(model: Any) -> dict[str, Any]:
         )
         if callable(getattr(model, attr, None))
     )
+    if getattr(model, "batch_mode", None) == "stateless" and callable(
+        getattr(model, "act_batch", None)
+    ):
+        out["capabilities"].append("act_batch")
+        out["capabilities"].sort()
+        out["batch_mode"] = "stateless"
     return out

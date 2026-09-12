@@ -27,6 +27,7 @@ from __future__ import annotations
 import copy
 import functools
 import math
+import time
 import warnings
 from typing import Any
 
@@ -99,6 +100,7 @@ def _ik_step(
     damping: float = 0.12,
     rate: float = 0.55,
     rotation_weight: float = 0.5,
+    scratch: tuple[np.ndarray, ...] | None = None,
 ) -> None:
     """Move ``data.qpos`` toward a tool position, holding the approach axis.
 
@@ -107,9 +109,10 @@ def _ik_step(
     the two to line up and says nothing about the yaw: a five-joint arm cannot
     honour a full pose, and a jaw closing on a block does not need it to.
     """
-    task = np.zeros(6)
-    jacp = np.zeros((3, model.nv))
-    jacr = np.zeros((3, model.nv))
+    if scratch is None:
+        scratch = (np.zeros(6), np.zeros((3, model.nv)), np.zeros((3, model.nv)),
+                   np.zeros((6, len(dof))), np.eye(6))
+    task, jacp, jacr, jac, eye = scratch
     for _ in range(iterations):
         mujoco.mj_kinematics(model, data)
         mujoco.mj_comPos(model, data)
@@ -119,8 +122,9 @@ def _ik_step(
         if np.linalg.norm(task[:3]) < 1e-5 and np.linalg.norm(task[3:]) < 1e-4:
             return
         mujoco.mj_jacSite(model, data, jacp, jacr, site)
-        jac = np.vstack([jacp[:, dof], rotation_weight * jacr[:, dof]])
-        step = jac.T @ np.linalg.solve(jac @ jac.T + damping**2 * np.eye(6), task)
+        jac[:3] = jacp[:, dof]
+        jac[3:] = rotation_weight * jacr[:, dof]
+        step = jac.T @ np.linalg.solve(jac @ jac.T + damping**2 * eye, task)
         data.qpos[qadr] = np.clip(data.qpos[qadr] + rate * step, limits[:, 0], limits[:, 1])
 
 
@@ -161,6 +165,7 @@ class ManipulationEnv(ManipulationDemonstrator):
         object_name: str | None = None,
         object_shape: str | None = None,
         frame_rate: float = 20.0,
+        observation_mode: str = "image",
     ) -> None:
         try:
             import mujoco
@@ -172,6 +177,10 @@ class ManipulationEnv(ManipulationDemonstrator):
             raise ValueError(f"unknown split {split!r}; have {sorted(SPLITS)}")
         if backend not in ("mujoco", "newton"):
             raise ValueError(f"backend must be 'mujoco' or 'newton', got {backend!r}")
+        if observation_mode not in ("image", "state"):
+            raise ValueError("observation_mode must be 'image' or 'state'")
+        self.observation_mode = observation_mode
+        self.timings = {"control_s": 0.0, "physics_s": 0.0, "observation_s": 0.0}
         self._mj = mujoco
         self.robot = str(robot)
         self.spec = robots.ROBOTS[self.robot] if self.robot in robots.ROBOTS else None
@@ -204,10 +213,16 @@ class ManipulationEnv(ManipulationDemonstrator):
             object_name=self.object_name,
             object_shape=self.object_shape,
         )
-        self.model = self._base
+        # Environments can run concurrently. Goal sites and physics
+        # parameters must never be shared between their mutable models.
+        self.model = copy.copy(self._base)
         self.data = mujoco.MjData(self.model)
         self._ik_data = mujoco.MjData(self.model)
         self._index()
+        self._ik_scratch = (
+            np.zeros(6), np.zeros((3, self.model.nv)), np.zeros((3, self.model.nv)),
+            np.zeros((6, len(self._arm_dof))), np.eye(6),
+        )
 
         #: Physics knobs, as absolute values so a perturbation can scale them.
         self.mass = float(self.model.body_mass[self._object_body])
@@ -339,6 +354,12 @@ class ManipulationEnv(ManipulationDemonstrator):
 
     def step(self, action: np.ndarray) -> tuple[Obs, float, bool, dict[str, Any]]:
         """Apply one tool-space command and advance the simulation one frame."""
+        reward, done, info = self.advance(action)
+        return self.observe(), reward, done, info
+
+    def advance(self, action: np.ndarray) -> tuple[float, bool, dict[str, Any]]:
+        """Advance control and physics without rendering or producing observations."""
+        started = time.perf_counter()
         a = np.clip(np.asarray(action, dtype=np.float64).reshape(-1), -1.0, 1.0)
         if a.shape[0] != self.action_dim:
             raise ValueError(f"action must have {self.action_dim} entries, got {a.shape[0]}")
@@ -360,11 +381,12 @@ class ManipulationEnv(ManipulationDemonstrator):
             self._grip_cmd = float((a[3] + 1.0) / 2.0)
         self._write_ctrl()
 
+        control_end = time.perf_counter()
         if self._sim is not None:
             self._sim.step()
         else:
-            for _ in range(self.substeps):
-                self._mj.mj_step(self.model, self.data)
+            self._mj.mj_step(self.model, self.data, nstep=self.substeps)
+        physics_end = time.perf_counter()
         self._t += 1
 
         if self._object_position()[2] > self._object_start[2] + self.lift_height * 0.8:
@@ -372,21 +394,26 @@ class ManipulationEnv(ManipulationDemonstrator):
         info = self._info()
         reward = float(-info["goal_distance"] + (1.0 if info["success"] else 0.0))
         done = bool(info["success"]) or self._t >= self.horizon
-        return self.observe(), reward, done, info
+        self.timings["control_s"] += control_end - started
+        self.timings["physics_s"] += physics_end - control_end
+        self.timings["observation_s"] += time.perf_counter() - physics_end
+        return reward, done, info
 
     def observe(self) -> Obs:
         """Everything a policy is allowed to see."""
+        started = time.perf_counter()
         obs: Obs = {
             "state": self._observation_state(),
             "goal": self._goal.astype(np.float32),
             "instruction": self.instruction,
             "tcp": self._tool_position().astype(np.float32),
         }
-        frame = self.render()
+        frame = self.render() if self.observation_mode == "image" else None
         if frame is not None:
             obs["image"] = frame
             if self._scene_text:
                 obs["_scene_text_rendered"] = True
+        self.timings["observation_s"] += time.perf_counter() - started
         return obs
 
     def state(self) -> np.ndarray:
@@ -609,6 +636,7 @@ class ManipulationEnv(ManipulationDemonstrator):
             self._site,
             target,
             approach=self._approach,
+            scratch=self._ik_scratch,
         )
         self._q_cmd = np.array(ik.qpos[self._arm_qadr], copy=True)
 

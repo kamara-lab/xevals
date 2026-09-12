@@ -47,6 +47,7 @@ from .core.dimensions import Dimension, DimensionScore
 from .core.errors import CapabilityMissing, GateFailed, MissingExtra, XevalsError
 from .core.seeding import set_seed
 from .core.types import (
+    BatchPolicy,
     Env,
     Planner,
     Policy,
@@ -97,6 +98,7 @@ del _module, _sys
 __version__ = "0.1.0"
 
 __all__ = [
+    "BatchPolicy",
     "Benchmark",
     "Budget",
     "CapabilityMissing",

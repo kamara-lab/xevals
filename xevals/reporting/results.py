@@ -493,6 +493,9 @@ class Result:
             "episodes": self.run.get("episodes"),
             "root_seed": self.run.get("root_seed"),
         }
+        execution = self.run.get("execution", {})
+        if execution.get("mode", "serial") != "serial":
+            payload["execution"] = {k: execution.get(k) for k in ("mode", "batch_size", "workers")}
         digest = json.dumps(jsonable(payload), sort_keys=True).encode()
         return hashlib.sha256(digest).hexdigest()[:12]
 

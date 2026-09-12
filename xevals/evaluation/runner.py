@@ -34,10 +34,14 @@ toward whichever episodes happen to be fast.
 
 from __future__ import annotations
 
+import copy
+import os
 import platform
 import sys
 import time
 from collections.abc import Callable, Iterable, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -245,13 +249,14 @@ def rollout(
         extra={"limits_declared": limits is not None},
     )
     confidence_fn = getattr(model, "confidence", None)
-    success_fn = getattr(env, "success", None)
     succeeded = False
 
     for step in range(horizon):
-        traj.obs.append(obs)
+        traj.obs.append(copy.deepcopy(obs))
         if record:
-            frame = env.render()
+            frame = obs.get("image")
+            if frame is None:
+                frame = env.render()
             if frame is not None:
                 traj.frames.append(np.asarray(frame, dtype=np.uint8))  # type: ignore[union-attr]
         start = time.perf_counter()
@@ -262,24 +267,20 @@ def rollout(
                 traj.confidences.append(float(confidence_fn(obs)))
             except CapabilityMissing:
                 pass
-        action = np.asarray(action, dtype=np.float32).reshape(-1)
-        obs, reward, done, info = env.step(action)
-        traj.actions.append(action)
-        traj.rewards.append(float(reward))
-        traj.infos.append(dict(info))
-        if limits is not None:
-            traj.violations.extend(
-                type(v)(v.kind, v.margin, step) for v in limits.check(info)
-            )
-        succeeded = bool(success_fn(info)) if callable(success_fn) else bool(info.get("success"))
-        if on_step is not None:
-            on_step(step, obs, action, info)
+        action = adapters.validate_action(action, env.action_dim)
+        obs, done, succeeded = _record_transition(
+            traj, env, action, env.step(action), step, limits, on_step,
+        )
         if done:
             break
 
-    traj.obs.append(obs)
+    traj.obs.append(copy.deepcopy(obs))
+    if getattr(env, "timings", None) is not None:
+        traj.extra["environment_timings"] = dict(env.timings)
     if record and traj.actions:
-        frame = env.render()
+        frame = obs.get("image")
+        if frame is None:
+            frame = env.render()
         if frame is not None:
             traj.frames.append(np.asarray(frame, dtype=np.uint8))
     if getattr(env, "offline", False):
@@ -295,6 +296,21 @@ def rollout(
     else:
         traj.success = succeeded
     return traj
+
+
+def _record_transition(traj, env, action, transition, step, limits, on_step):
+    """The shared measurement path for serial and batched rollouts."""
+    obs, reward, done, info = transition
+    traj.actions.append(action.copy())
+    traj.rewards.append(float(reward))
+    traj.infos.append(copy.deepcopy(info))
+    if limits is not None:
+        traj.violations.extend(type(v)(v.kind, v.margin, step) for v in limits.check(info))
+    success_fn = getattr(env, "success", None)
+    succeeded = bool(success_fn(info)) if callable(success_fn) else bool(info.get("success"))
+    if on_step is not None:
+        on_step(step, obs, action, info)
+    return obs, bool(done), succeeded
 
 
 def _episode_seeds(root: int, seeds: Sequence[int], episodes: int) -> list[int]:
@@ -361,6 +377,10 @@ def _build_env(
     perturbation = perturbations.create(
         cell.perturbation, severity=cell.severity, **cell.perturbation_kwargs
     )
+    if getattr(env, "observation_mode", None) == "state" and getattr(
+        perturbation, "requires_image", False
+    ):
+        return env, "image observations are disabled in state-only mode"
     try:
         return envs.perturbed(env, perturbation, seed=seed), ""
     except CapabilityMissing as exc:
@@ -491,6 +511,10 @@ def evaluate(
     on_step: Callable[..., None] | None = None,
     save_trajectories: bool = False,
     verbose: bool = True,
+    execution: str = "serial",
+    batch_size: int = 1,
+    workers: int | None = None,
+    observation_mode: str | None = None,
 ) -> Any:
     """Evaluate a model along every dimension the suite covers.
 
@@ -510,8 +534,14 @@ def evaluate(
         budget: seconds, or a :class:`Budget`. Truncates between episodes and
             marks the run ``partial``.
         baselines: run the suite's reference policies on the same seeds.
-        on_step: called as ``(step, obs, action, info)``; for Rerun or a progress
-            bar. ``None``-tolerant, and never required.
+        on_step: called as ``(step, obs, action, info)`` on the coordinator.
+        execution: ``serial`` (default) or ``cpu_batch`` for explicitly stateless
+            CPU policies on MuJoCo manipulation environments.
+        batch_size: maximum simultaneous episodes, within one cell.
+        workers: CPU environment threads; defaults to at most four and batch_size.
+        observation_mode: ``image`` or ``state`` for registered manipulation
+            environments. Factories must construct the matching mode themselves.
+            CPU batching supports both modes; rendering stays on the coordinator.
 
     Returns:
         A :class:`xevals.results.Result`.
@@ -533,11 +563,48 @@ def evaluate(
     set_seed(root_seed)
 
     model = adapters.wrap(model)
-    make_env = _env_factory(env)
+    if not callable(getattr(model, "act", None)):
+        raise TypeError(
+            "evaluate() requires a Policy.act interface; planners and world models "
+            "need plan/prediction metrics or an explicit policy controller"
+        )
+    if execution not in ("serial", "cpu_batch"):
+        raise ValueError("execution must be 'serial' or 'cpu_batch'")
+    if not isinstance(batch_size, int) or isinstance(batch_size, bool) or batch_size < 1:
+        raise ValueError("batch_size must be a positive integer")
+    if workers is not None and (
+        not isinstance(workers, int) or isinstance(workers, bool) or workers < 1
+    ):
+        raise ValueError("workers must be a positive integer")
+    if observation_mode not in (None, "image", "state"):
+        raise ValueError("observation_mode must be 'image' or 'state'")
+    if execution == "serial" and (batch_size != 1 or workers is not None):
+        raise ValueError("batch_size and workers require execution='cpu_batch'")
+    if execution == "cpu_batch":
+        from xevals.evaluation.batching import check_environment, check_policy
+
+        check_policy(model)
+        if hasattr(env, "step"):
+            raise ValueError("cpu_batch needs an environment name or a fresh-environment factory")
+    make_env = _env_factory(env, observation_mode=observation_mode)
     probe = make_env("", "in")
-    action_dim = int(getattr(probe, "action_dim", 2))
-    env_info = _env_fingerprint(probe)
-    _close(probe)
+    try:
+        if execution == "cpu_batch":
+            check_environment(probe)
+        action_dim = int(getattr(probe, "action_dim", 2))
+        env_info = _env_fingerprint(probe)
+    finally:
+        _close(probe)
+    if execution == "cpu_batch":
+        for task, split in sorted({(cell.task or "", cell.split) for cell in spec.cells}):
+            candidate = make_env(task, split)
+            try:
+                check_environment(candidate)
+            finally:
+                _close(candidate)
+    worker_count = min(workers or min(4, os.cpu_count() or 1), batch_size)
+    execution_info = {"mode": execution, "batch_size": batch_size,
+                      "workers": worker_count if execution == "cpu_batch" else 1}
 
     if verbose:
         print(
@@ -547,22 +614,43 @@ def evaluate(
         )
 
     cells: dict[str, CellResult] = {}
-    for cell in spec.cells:
-        started = time.perf_counter()
-        cells[cell.name] = run_cell(
-            model,
-            make_env,
-            cell,
-            root_seed=root_seed,
-            seeds=seeds,
-            episodes=episodes,
-            horizon=horizon,
-            record=record,
-            budget=budget,
-            on_step=on_step,
-        )
-        if verbose:
-            _print_cell(cells[cell.name], time.perf_counter() - started)
+    pool_context = (
+        ThreadPoolExecutor(max_workers=worker_count) if execution == "cpu_batch" else nullcontext()
+    )
+    evaluation_started = time.perf_counter()
+    with pool_context as pool:
+        for cell in spec.cells:
+            started = time.perf_counter()
+            options = dict(root_seed=root_seed, seeds=seeds, episodes=episodes, horizon=horizon,
+                           record=record, budget=budget, on_step=on_step)
+            if execution == "cpu_batch":
+                from xevals.evaluation.batching import run_batch_cell
+
+                cells[cell.name] = run_batch_cell(
+                    model, make_env, cell, pool=pool, batch_size=batch_size, **options,
+                )
+            else:
+                cells[cell.name] = run_cell(model, make_env, cell, **options)
+            if verbose:
+                _print_cell(cells[cell.name], time.perf_counter() - started)
+    elapsed = time.perf_counter() - evaluation_started
+    steps = sum(len(t.actions) for c in cells.values() for t in c.trajectories)
+    trajectories = [t for c in cells.values() for t in c.trajectories]
+    inference_ms = sum(
+        sum(c["duration_ms"] for c in t.extra.get("batch_calls", []))
+        if execution == "cpu_batch" else sum(t.latencies_ms)
+        for t in trajectories
+    )
+    execution_info.update(
+        evaluation_s=elapsed, control_steps=steps,
+        control_steps_per_s=steps / elapsed if elapsed else None,
+        inference_s=inference_ms / 1000,
+        # Worker durations overlap; these sums are work, not elapsed time.
+        environment_work_s={
+            key: sum(t.extra.get("environment_timings", {}).get(key, 0.0) for t in trajectories)
+            for key in ("control_s", "physics_s", "observation_s")
+        },
+    )
 
     baseline_results = (
         _run_baselines(
@@ -579,6 +667,7 @@ def evaluate(
         else {}
     )
 
+    scoring_started = time.perf_counter()
     result = build_result(
         spec=spec,
         cells=cells,
@@ -594,9 +683,11 @@ def evaluate(
             "partial": bool(budget is not None and budget.exhausted),
             "budget": budget.describe() if budget is not None else None,
             "environment": environment_fingerprint(),
+            "execution": execution_info,
         },
         control_hz=control_hz,
     )
+    result.run["execution"]["scoring_s"] = time.perf_counter() - scoring_started
     if out is not None:
         result.save(out, name=name, trajectories=save_trajectories)
         if verbose:
@@ -634,7 +725,7 @@ class _BorrowedEnv:
         pass
 
 
-def _env_factory(env: Any) -> Callable[[str, str], Env]:
+def _env_factory(env: Any, *, observation_mode: str | None = None) -> Callable[[str, str], Env]:
     """Normalise the three ways an environment can be supplied into one factory.
 
     The split argument is passed to a factory that accepts it and dropped for one
@@ -643,7 +734,8 @@ def _env_factory(env: Any) -> Callable[[str, str], Env]:
     """
     if isinstance(env, str):
         name = env
-        return lambda task, split: envs.create(name, split=split)
+        options = {} if observation_mode is None else {"observation_mode": observation_mode}
+        return lambda task, split: envs.create(name, split=split, **options)
     if callable(env) and not hasattr(env, "step"):
         import inspect
 
@@ -651,11 +743,19 @@ def _env_factory(env: Any) -> Callable[[str, str], Env]:
             params = inspect.signature(env).parameters
         except (TypeError, ValueError):  # pragma: no cover
             params = {}
-        if "split" in params:
-            return lambda task, split: env(task=task or None, split=split)  # type: ignore[misc]
-        return lambda task, split: env()
+        def make(task, split):
+            instance = env(task=task or None, split=split) if "split" in params else env()
+            if observation_mode is not None and (
+                getattr(instance, "observation_mode", None) != observation_mode
+            ):
+                _close(instance)
+                raise ValueError("factory must construct the requested observation_mode")
+            return instance
+        return make
     # A single live environment: reused across cells, which is why every cell
     # resets it with its own seed rather than trusting the previous cell's state.
+    if observation_mode is not None and getattr(env, "observation_mode", None) != observation_mode:
+        raise ValueError("construct the environment with the requested observation_mode")
     borrowed = _BorrowedEnv(env)
     return lambda task, split: borrowed  # type: ignore[return-value]
 
@@ -672,7 +772,7 @@ def _env_fingerprint(env: Any) -> dict[str, Any]:
     describe = getattr(env, "describe", None)
     if callable(describe):
         info["configuration"] = describe()
-    for attr in ("env_id", "task", "object_name", "robot", "backend"):
+    for attr in ("env_id", "task", "object_name", "robot", "backend", "observation_mode"):
         if hasattr(env, attr):
             info[attr] = getattr(env, attr)
     try:
@@ -851,6 +951,11 @@ def score_cells(
     """
     for result in cells.values():
         if not result.trajectories:
+            if result.skipped:
+                result.values = {
+                    name: metrics.MetricValue(name, None, reason=result.skipped)
+                    for name in result.cell.metrics
+                }
             continue
         reference = cells.get(result.cell.pair_with or "")
         result.values = metrics.compute(

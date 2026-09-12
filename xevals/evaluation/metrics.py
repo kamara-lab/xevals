@@ -769,12 +769,18 @@ def _latencies(trajs: Sequence[Trajectory]) -> np.ndarray:
     return np.asarray(values, dtype=float)
 
 
+def _timing_reason(trajs) -> str:
+    if any(t.extra.get("execution") == "cpu_batch" for t in trajs):
+        return "batched inference: single-action latency is not measured; see batch timings"
+    return "no step timings recorded"
+
+
 @metric("efficiency/latency_p50", Dimension.EFFICIENCY, higher_is_better=False, unit="ms")
 def latency_p50(trajs, *, ref=None, **kw) -> MetricValue:
     """Median time for one ``act`` call, measured around the model only."""
     values = _latencies(trajs)
     if values.size == 0:
-        return _null("efficiency/latency_p50", "no step timings recorded", unit="ms")
+        return _null("efficiency/latency_p50", _timing_reason(trajs), unit="ms")
     return MetricValue(
         "efficiency/latency_p50", float(np.percentile(values, 50)), None, int(values.size),
         unit="ms",
@@ -786,7 +792,7 @@ def latency_p95(trajs, *, ref=None, **kw) -> MetricValue:
     """95th-percentile step latency. What a control loop must budget for."""
     values = _latencies(trajs)
     if values.size == 0:
-        return _null("efficiency/latency_p95", "no step timings recorded", unit="ms")
+        return _null("efficiency/latency_p95", _timing_reason(trajs), unit="ms")
     return MetricValue(
         "efficiency/latency_p95", float(np.percentile(values, 95)), None, int(values.size),
         unit="ms",
@@ -798,7 +804,7 @@ def throughput(trajs, *, ref=None, **kw) -> MetricValue:
     """Steps per second from the model alone, excluding the simulator."""
     values = _latencies(trajs)
     if values.size == 0:
-        return _null("efficiency/throughput", "no step timings recorded", unit="steps/s")
+        return _null("efficiency/throughput", _timing_reason(trajs), unit="steps/s")
     return MetricValue(
         "efficiency/throughput", float(1000.0 / np.mean(values)), None, int(values.size),
         unit="steps/s",
@@ -829,7 +835,7 @@ def control_headroom(trajs, *, ref=None, control_hz=10.0, **kw) -> MetricValue:
     """
     values = _latencies(trajs)
     if values.size == 0:
-        return _null("efficiency/control_headroom", "no step timings recorded", unit="ratio")
+        return _null("efficiency/control_headroom", _timing_reason(trajs), unit="ratio")
     budget_ms = 1000.0 / float(control_hz)
     headroom = 1.0 - float(np.percentile(values, 95)) / budget_ms
     return MetricValue("efficiency/control_headroom", headroom, None, int(values.size),
